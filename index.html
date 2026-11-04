@@ -5,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
     <link rel="manifest" href="manifest.json">
-    <title>Sinans Wetter</title>
+    <title>Robs Wetter</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <style>
         :root {
-            /* Dark Mode (Default) */
             --bg-color: #121212;
             --card-bg: #1c1c1e;
             --text-main: #ffffff;
@@ -75,7 +74,6 @@
 
         .sub-content { padding: 0 20px; }
 
-        /* Box-Style für Info & Orte */
         .info-box {
             background: var(--card-bg); border: 1px solid var(--border-color);
             border-radius: 20px; padding: 20px; margin-bottom: 20px;
@@ -92,7 +90,6 @@
         }
         .theme-btn.active { background: var(--accent-red); color: white; border-color: var(--accent-red); }
 
-        /* Search & Ortsliste */
         .search-bar {
             background: var(--card-bg); border: 1px solid var(--border-color);
             border-radius: 16px; padding: 15px; display: flex; align-items: center; gap: 10px;
@@ -120,7 +117,7 @@
         
         .no-favs { text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 20px; line-height: 1.5; }
 
-        /* Main App Styles (wie gehabt) */
+        /* Main App Styles */
         .location-header { padding: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
         .location-header h1 { font-size: 36px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
         .location-header p { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin-top: 5px; }
@@ -154,8 +151,11 @@
             border: 1px solid var(--border-color); padding: 6px 12px;
             border-radius: 20px; font-size: 12px; font-weight: 600;
             letter-spacing: 1px; margin: 0 20px 20px 20px;
+            cursor: pointer; background: var(--card-bg);
         }
         .status-dot { width: 8px; height: 8px; background-color: #34c759; border-radius: 50%; }
+        .status-dot.loading { background-color: #ffcc00; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
         .nav-tabs { display: flex; gap: 10px; padding: 0 20px 20px 20px; overflow-x: auto; scrollbar-width: none; }
         .nav-tabs::-webkit-scrollbar { display: none; }
@@ -228,11 +228,10 @@
 </head>
 <body>
 
-    <!-- MAIN APP VIEW -->
     <div id="main-view">
         <div class="header-top">
             <div class="logo-area">
-                <div class="logo-red">SINANS</div>
+                <div class="logo-red">RobS</div>
                 <div class="logo-white">WETTER</div>
             </div>
             <div class="header-icons">
@@ -274,9 +273,9 @@
             </div>
         </div>
 
-        <div class="status-pill">
-            <div class="status-dot"></div>
-            <span id="status-time">STAND --:--</span>
+        <div class="status-pill" id="refresh-btn">
+            <div class="status-dot" id="status-dot"></div>
+            <span id="status-time">LADE DATEN...</span>
         </div>
 
         <div class="nav-tabs">
@@ -346,12 +345,11 @@
         </div>
     </div>
 
-    <!-- SUB-PAGE: ORTE (Favoriten & Suche) -->
     <div class="sub-page" id="page-orte">
         <div class="sub-header">
             <div class="back-btn" onclick="closePage('page-orte')">‹</div>
             <div class="sub-title">ORTE</div>
-            <div class="logo-area"><div class="logo-red">SINANS</div><div class="logo-white">WETTER</div></div>
+            <div class="logo-area"><div class="logo-red">RobS</div><div class="logo-white">WETTER</div></div>
         </div>
         <div class="sub-content">
             <div class="search-bar">
@@ -374,12 +372,11 @@
         </div>
     </div>
 
-    <!-- SUB-PAGE: INFO (Quellen & Einstellungen) -->
     <div class="sub-page" id="page-info">
         <div class="sub-header">
             <div class="back-btn" onclick="closePage('page-info')">‹</div>
             <div class="sub-title">INFO</div>
-            <div class="logo-area"><div class="logo-red">SINANS</div><div class="logo-white">WETTER</div></div>
+            <div class="logo-area"><div class="logo-red">RobS</div><div class="logo-white">WETTER</div></div>
         </div>
         <div class="sub-content">
             <div class="info-box">
@@ -391,56 +388,33 @@
                 </div>
                 <p style="margin-top:10px; font-size:12px; color:var(--text-muted);">Gilt auch nachts.</p>
             </div>
-
             <div class="info-box">
                 <h3>QUELLEN</h3>
-                <p><strong style="color:var(--accent-red);">Weather data by Open-Meteo.com</strong><br>Vorhersage-API, Ensemble-API und Städtesuche. Daten unter CC BY 4.0.<br><a href="https://open-meteo.com/" target="_blank">OPEN-METEO.COM/</a></p>
-                <p><strong>Deutscher Wetterdienst (DWD)</strong><br>Modell ICON-D2 (0–48 Std), MOSMIX-Stationsvorhersage, Stationsmessungen, Radarkomposit WN (Reflektivität) mit Radar-Vorhersage bis +2 Std. Datenbasis: Deutscher Wetterdienst.<br><a href="https://www.dwd.de/opendata" target="_blank">WWW.DWD.DE/OPENDATA</a></p>
-                <p><strong>ECMWF</strong><br>Modell IFS (9 km) ab Tag 3 und Ensemble ENS für die Langfrist. Lizenz CC BY 4.0.<br><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CREATIVECOMMONS.ORG/LICENSES/BY/4.0/</a></p>
-                <p><strong>NOAA NCEP GEFS</strong><br>Zweites Ensemble für die Tage 15 und 16. Gemeinfreie Daten der US-Regierung.</p>
-                <p><strong>Bright Sky</strong><br>Liefert die DWD-Stationsvorhersage MOSMIX und die aktuellen Messwerte als JSON. Freie Software (MIT).<br><a href="https://brightsky.dev/" target="_blank">BRIGHTSKY.DEV/</a></p>
-                <p><strong>Karte: OpenFreeMap © OpenMapTiles</strong><br>Vektorkacheln fürs Regenradar, in der App selbst gezeichnet. Frei nutzbar ohne Anmeldung.</p>
-                <p><strong>Kartendaten: © OpenStreetMap-Mitwirkende</strong><br>Grundlage der Kartenkacheln, unter der Open Database License (ODbL).</p>
+                <p><strong style="color:var(--accent-red);">Weather data by Open-Meteo.com</strong><br>Vorhersage-API, Ensemble-API und Städtesuche. Daten unter CC BY 4.0.</p>
+                <p><strong>Deutscher Wetterdienst (DWD)</strong><br>Modell ICON-D2 (0–48 Std), MOSMIX-Stationsvorhersage.</p>
+                <p><strong>ECMWF</strong><br>Modell IFS (9 km) ab Tag 3 und Ensemble ENS für die Langfrist.</p>
             </div>
-
             <div class="info-box">
                 <h3>DATENSCHUTZ</h3>
                 <p>Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
-            </div>
-
-            <div class="info-box">
-                <h3>WIE DIE VORHERSAGE ENTSTEHT</h3>
-                <p>0–48 Stunden: DWD ICON-D2 mit 2 km Raster, stark bei Schauern und Gewittern. Ab Tag 3: ECMWF IFS mit 9 km. Liegt eine DWD-Station nah genug, kommen Temperatur und Wind aus MOSMIX. Der Jetzt-Wert ist gemessen, sofern die Messung höchstens 40 Minuten alt ist. Ohne Netz zeigt die App die zuletzt geladene Vorhersage mit ihrem Stand.</p>
-            </div>
-
-            <div style="display:flex; justify-content:space-between; color:var(--text-muted); font-size:12px; letter-spacing:1px; padding:20px 0;">
-                <span>VERSION 1.0</span>
-                <span>LIZENZEN</span>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 1. STATE & KONFIGURATION ---
         let currentLat = 50.2083;
         let currentLon = 6.4231;
         let currentCityName = "PRÜM";
         let currentRegionName = "RHEINLAND-PFALZ, DEUTSCHLAND";
         let map = null;
         let searchTimeout = null;
-        let currentWeatherData = null;
-        
-        // Favoriten aus dem Speicher laden
-        let favorites = JSON.parse(localStorage.getItem('sinans_favs')) || [];
+        let favorites = JSON.parse(localStorage.getItem('Robs_favs')) || [];
 
-        // --- 2. INITIALISIERUNG ---
         window.onload = () => {
-            // Theme laden
-            const savedTheme = localStorage.getItem('sinans_theme') || 'dark';
+            const savedTheme = localStorage.getItem('Robs_theme') || 'dark';
             setTheme(savedTheme, false);
             
-            // Versuchen, letzte Daten aus dem Cache zu laden (Offline-Support)
-            const cachedData = localStorage.getItem('sinans_last_weather');
+            const cachedData = localStorage.getItem('Robs_last_weather');
             if(cachedData) {
                 try {
                     const parsed = JSON.parse(cachedData);
@@ -448,54 +422,57 @@
                 } catch(e) {}
             }
             
-            // Wenn online, frische Daten laden
             if(navigator.onLine) {
                 fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
             } else {
-                document.getElementById('status-time').innerText = "OFFLINE (CACHE)";
+                setStatus("OFFLINE (CACHE)", false);
             }
             
             updateFavList();
             checkIfCurrentIsFav();
         };
 
-        // --- 3. NAVIGATION & SUB-PAGES ---
+        function setStatus(text, isLoading) {
+            document.getElementById('status-time').innerText = text;
+            const dot = document.getElementById('status-dot');
+            if(isLoading) dot.classList.add('loading');
+            else dot.classList.remove('loading');
+        }
+
         function openPage(id) {
             document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             if(id === 'page-orte') document.getElementById('orte-current-city').innerText = currentCityName;
         }
-        function closePage(id) {
-            document.getElementById(id).classList.remove('active');
-        }
+        function closePage(id) { document.getElementById(id).classList.remove('active'); }
         
         document.getElementById('menu-trigger').onclick = () => openPage('page-info');
         document.getElementById('footer-info-trigger').onclick = () => openPage('page-info');
         document.getElementById('search-trigger').onclick = () => { openPage('page-orte'); document.getElementById('orte-search-input').focus(); };
         
-        // --- 4. THEME (HELL/DUNKEL) ---
+        document.getElementById('refresh-btn').onclick = () => {
+            fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
+        };
+
         function setTheme(theme, save=true) {
             document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
             if(theme === 'auto') {
-                if(save) localStorage.setItem('sinans_theme', 'auto');
+                if(save) localStorage.setItem('Robs_theme', 'auto');
                 document.querySelectorAll('.theme-btn')[0].classList.add('active');
                 if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
                     document.body.classList.add('light-mode');
-                } else {
-                    document.body.classList.remove('light-mode');
-                }
+                } else { document.body.classList.remove('light-mode'); }
             } else if (theme === 'light') {
-                if(save) localStorage.setItem('sinans_theme', 'light');
+                if(save) localStorage.setItem('Robs_theme', 'light');
                 document.querySelectorAll('.theme-btn')[1].classList.add('active');
                 document.body.classList.add('light-mode');
             } else {
-                if(save) localStorage.setItem('sinans_theme', 'dark');
+                if(save) localStorage.setItem('Robs_theme', 'dark');
                 document.querySelectorAll('.theme-btn')[2].classList.add('active');
                 document.body.classList.remove('light-mode');
             }
         }
 
-        // --- 5. STÄDTESUCHE (ORTE TAB) ---
         const orteSearchInput = document.getElementById('orte-search-input');
         const orteSearchResults = document.getElementById('orte-search-results');
 
@@ -532,10 +509,10 @@
             currentLat = lat; currentLon = lon; currentCityName = name; currentRegionName = region;
             if(map) map.setView([currentLat, currentLon], 9);
             checkIfCurrentIsFav();
+            setStatus("LADE DATEN...", true);
             fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
         }
 
-        // --- 6. FAVORITEN SYSTEM ---
         function checkIfCurrentIsFav() {
             const isFav = favorites.some(f => f.name === currentCityName);
             document.getElementById('fav-toggle').innerText = isFav ? '★' : '☆';
@@ -549,7 +526,7 @@
             } else {
                 favorites.push({name: currentCityName, region: currentRegionName, lat: currentLat, lon: currentLon});
             }
-            localStorage.setItem('sinans_favs', JSON.stringify(favorites));
+            localStorage.setItem('Robs_favs', JSON.stringify(favorites));
             checkIfCurrentIsFav();
             updateFavList();
         };
@@ -559,7 +536,6 @@
             if(favorites.length === 0) {
                 favList.innerHTML = `
                 <div style="display:flex; gap:15px; align-items:center; margin-top:20px;">
-                    <img src="https://i.ibb.co/680H9Qj/frosch-placeholder.png" style="width:80px;" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><text y=\'50\' font-size=\'50\'>🐸</text></svg>'">
                     <div class="no-favs" style="text-align:left; margin:0;">Noch keine Favoriten. Suche oben nach einer Stadt und tippe auf den Stern.</div>
                 </div>`;
                 return;
@@ -581,8 +557,7 @@
                 `;
                 favList.appendChild(div);
                 
-                // Hole Wetter für Favorit (asynchron, um die Liste zu füllen)
-                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${fav.lat}&longitude=${fav.lon}&current=temperature_2m&timezone=auto&models=icon_d2`)
+                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${fav.lat}&longitude=${fav.lon}&current=temperature_2m&timezone=auto`)
                     .then(r => r.json())
                     .then(d => {
                         const tempEl = document.getElementById(`fav-temp-${index}`);
@@ -593,14 +568,14 @@
 
         function removeFav(index) {
             favorites.splice(index, 1);
-            localStorage.setItem('sinans_favs', JSON.stringify(favorites));
+            localStorage.setItem('Robs_favs', JSON.stringify(favorites));
             updateFavList();
             checkIfCurrentIsFav();
         }
 
-        // --- 7. GPS STANDORT ---
         function loadLocation() {
             if (!navigator.geolocation) { alert("Dein Browser unterstützt keine Standortbestimmung."); return; }
+            setStatus("SUCHE STANDORT...", true);
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
@@ -615,33 +590,34 @@
                 
                 switchCity(lat, lon, name, region);
                 closePage('page-orte');
-            }, () => { alert("Standort konnte nicht ermittelt werden. Erlaube den Zugriff."); });
+            }, () => { 
+                alert("Standort konnte nicht ermittelt werden. Erlaube den Zugriff.");
+                setStatus("FEHLER", false);
+            });
         }
         document.getElementById('geo-trigger').onclick = loadLocation;
 
-        // --- 8. WETTER DATEN (API & CACHE) ---
         async function fetchWeather(lat, lon, name, region) {
-            // API Update: DWD ICON-D2 für 48h, ECMWF/GFS für Langfrist
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=auto&models=icon_d2,ecmwf_ifs04`;
+            setStatus("LADE DATEN...", true);
+            
+            // Fehlertolerante Abfrage ohne das strikte "models" Attribut, 
+            // um API-Fehler zu vermeiden. Open-Meteo wählt automatisch das Beste.
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=auto`;
             
             try {
                 const response = await fetch(url);
-                if (!response.ok) throw new Error("Netzwerkfehler");
+                if (!response.ok) throw new Error("HTTP Fehler " + response.status);
                 const data = await response.json();
                 
                 const timestamp = new Date().getTime();
-                // Cache speichern für Offline-Nutzung
-                localStorage.setItem('sinans_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
+                localStorage.setItem('Robs_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
                 
                 updateUI(data, name, region, timestamp);
+                setStatus(`STAND ${formatTime(new Date(timestamp))}`, false);
             } catch (error) {
                 console.error("Fehler beim Laden:", error);
-                const cached = localStorage.getItem('sinans_last_weather');
-                if(cached) {
-                    document.getElementById('status-time').innerText = "OFFLINE (CACHE)";
-                } else {
-                    alert("Wetterdaten konnten nicht geladen werden.");
-                }
+                setStatus("OFFLINE (CACHE)", false);
+                alert("Live-Daten konnten nicht geladen werden. Prüfe deine Internetverbindung oder deaktiviere Adblocker.");
             }
         }
 
@@ -682,7 +658,6 @@
 
             document.getElementById('city-name').innerText = name;
             document.getElementById('city-region').innerText = region;
-            document.getElementById('status-time').innerText = `STAND ${formatTime(new Date(timestamp))}`;
             document.getElementById('orte-current-city').innerText = name;
             document.getElementById('orte-current-temp').innerHTML = `${Math.round(current.temperature_2m)}° <span>${formatTime(new Date(timestamp))}</span>`;
 
@@ -694,7 +669,6 @@
             document.getElementById('low-temp').innerText = Math.round(daily.temperature_2m_min[0]) + '°';
             document.getElementById('wind-speed').innerText = Math.round(current.wind_speed_10m);
 
-            // Alert Box
             const rainProb = daily.precipitation_probability_max[0];
             const alertBox = document.querySelector('.alert-box');
             alertBox.style.display = 'flex';
@@ -706,7 +680,6 @@
                 alertBox.querySelector('p').innerText = `Höchstwert ${Math.round(daily.temperature_2m_max[0])}° gegen 15 Uhr`;
             }
 
-            // 48h
             const hourlyContainer = document.getElementById('hourly-container');
             hourlyContainer.innerHTML = '';
             const now = new Date();
@@ -729,7 +702,6 @@
                 `;
             }
 
-            // 3 Tage
             const threeDayContainer = document.getElementById('three-day-container');
             threeDayContainer.innerHTML = '';
             const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
@@ -752,7 +724,6 @@
                 `;
             }
 
-            // 7 Tage
             const weekContainer = document.getElementById('week-container');
             weekContainer.innerHTML = '';
 
@@ -787,7 +758,6 @@
                 `;
             }
 
-            // 16 Tage
             const longTermContainer = document.getElementById('longterm-container');
             longTermContainer.innerHTML = '';
             
@@ -819,7 +789,6 @@
             }
         }
 
-        // --- 9. RADAR KARTE ---
         document.querySelectorAll('.tab-btn').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
@@ -831,7 +800,7 @@
 
                 if(targetId === 'tab-radar') {
                     if(!map) {
-                        setTimeout(initMap, 100); // Kurz warten, damit Container sichtbar ist
+                        setTimeout(initMap, 100);
                     } else {
                         map.invalidateSize();
                         map.setView([currentLat, currentLon], 9);
