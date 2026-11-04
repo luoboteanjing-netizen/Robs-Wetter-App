@@ -800,10 +800,22 @@
             return 'overcast';
         }
 
+        // Dateinamen im aktuellen Meteocons-Paket (@meteocons/svg). Einige Namen aus
+        // getMeteoconUrl() heissen dort anders. Die Panda-PNGs behalten ihre Namen.
+        const METEOCON_FILE = {
+            'heavy-rain': 'extreme-rain',
+            'heavy-snow': 'extreme-snow',
+            'freezing-rain': 'sleet',
+            'freezing-drizzle': 'sleet',
+            'snow-grains': 'snow',
+            'thunderstorm': 'thunderstorms'
+        };
+        const METEOCON_BASE = 'https://cdn.jsdelivr.net/npm/@meteocons/svg@0.1.0/fill/';
+
         function getWeatherIconHtml(code, isDay = 1) {
             const iconName = getMeteoconUrl(code, isDay);
-            // FIX: Zuverlässiges Meteocons CDN über jsDelivr mit korrektem Pfad
-            return `<img src="https://cdn.jsdelivr.net/gh/basmilius/weather-icons@master/production/fill/svg/${iconName}.svg" alt="${iconName}">`;
+            const file = METEOCON_FILE[iconName] || iconName;
+            return `<img src="${METEOCON_BASE}${file}.svg" alt="${iconName}">`;
         }
 
         function getWeatherText(code) {
