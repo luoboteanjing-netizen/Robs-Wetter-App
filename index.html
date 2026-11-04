@@ -22,8 +22,8 @@
             --border-color: #333333;
             --bar-bg: #252525;
             
-            /* Dark Mode: Tag ist etwas heller, Nacht ist dunkel (Standard) */
-            --day-highlight: rgba(255, 255, 255, 0.08);
+            /* Dark Mode: Nacht ist etwas heller (Kontrast zum dunklen Hintergrund) */
+            --night-highlight: rgba(255, 255, 255, 0.08);
             
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
         }
@@ -36,8 +36,8 @@
             --border-color: #d1d1d6;
             --bar-bg: #e5e5ea;
             
-            /* Light Mode: Tag ist weiß (bleibt card-bg), Nacht ist grau */
-            --day-highlight: rgba(0, 0, 0, 0.06); 
+            /* Light Mode: Nacht ist grau, Tag bleibt weiß */
+            --night-highlight: rgba(0, 0, 0, 0.06); 
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -143,11 +143,24 @@
             font-weight: 800;
             line-height: 1; 
             position: relative; 
+            width: 120px;
         }
-        .temp-huge::after { content: '°'; font-size: 40px; position: absolute; top: 10px; right: -25px; }
-        .frog-img { width: 120px; height: auto; position: absolute; left: 50%; transform: translateX(-50%); z-index: 10; }
+        .temp-huge::after { content: '°'; font-size: 40px; position: absolute; top: 10px; right: 0px; }
         
-        /* Icon Container */
+        /* Das große Panda-Bild */
+        .frog-img { 
+            width: 140px; 
+            height: 140px; 
+            object-fit: contain; 
+            position: absolute; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            z-index: 10; 
+            top: 50%; 
+            margin-top: -70px; 
+        }
+        
+        /* Icon Container Rechts */
         .weather-icon-main { width: 80px; height: 80px; }
         .weather-icon-main img { width: 100%; height: 100%; object-fit: contain; }
 
@@ -210,8 +223,8 @@
             transition: background-color 0.3s;
         }
         
-        /* Hier wird die Klasse 'is-night' genutzt, um die Nacht zu markieren */
-        .hourly-item.is-night { background-color: var(--day-highlight); }
+        /* Klasse für die Nacht-Hintergründe */
+        .hourly-item.is-night { background-color: var(--night-highlight); }
         
         .hourly-item .time { font-size: 12px; font-weight: 600; color: var(--text-muted); }
         .hourly-item .time.now { color: var(--accent-red); }
@@ -299,7 +312,8 @@
 
         <div class="current-weather">
             <div class="temp-huge" id="current-temp">-</div>
-            <img src="icon.png" alt="Panda" class="frog-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><text y=\'50\' font-size=\'50\'>🐼</text></svg>'">
+            <!-- Das große Panda-Bild (ID für JS hinzugefügt) -->
+            <img src="clear-day.png" alt="Panda" class="frog-img" id="main-panda-img" onerror="this.style.display='none'">
             <div class="weather-icon-main" id="current-icon"></div>
         </div>
 
@@ -788,8 +802,8 @@
 
         function getWeatherIconHtml(code, isDay = 1) {
             const iconName = getMeteoconUrl(code, isDay);
-            // Zuverlässiges Meteocons CDN
-            return `<img src="https://cdn.meteocons.com/static/svg/fill/${iconName}.svg" alt="${iconName}">`;
+            // FIX: Zuverlässiges Meteocons CDN über jsDelivr mit korrektem Pfad
+            return `<img src="https://cdn.jsdelivr.net/gh/basmilius/weather-icons@master/production/fill/svg/${iconName}.svg" alt="${iconName}">`;
         }
 
         function getWeatherText(code) {
@@ -839,6 +853,12 @@
             document.getElementById('high-temp').innerText = Math.round(daily.temperature_2m_max[0]) + '°';
             document.getElementById('low-temp').innerText = Math.round(daily.temperature_2m_min[0]) + '°';
             document.getElementById('wind-speed').innerText = Math.round(current.wind_speed_10m);
+
+            // --- GROSSES PANDA BILD ZUWEISEN ---
+            const pandaIconName = getMeteoconUrl(current.weather_code, current.is_day);
+            const mainPandaImg = document.getElementById('main-panda-img');
+            mainPandaImg.src = `${pandaIconName}.png`;
+            mainPandaImg.style.display = 'block'; // Wieder einblenden, falls es vorher einen Fehler hatte
 
             // --- TENDENZ (Punkt 1) ---
             const trendInfo = document.getElementById('trend-info');
@@ -896,7 +916,6 @@
                 
                 const arrowRotation = windDir + 90;
 
-                // NEU: Klasse 'is-night' wenn es dunkel ist, statt 'is-day'
                 hourlyContainer.innerHTML += `
                     <div class="hourly-item ${!isDay ? 'is-night' : ''}">
                         <div class="time ${i===startIndex ? 'now' : ''}">${label}</div>
