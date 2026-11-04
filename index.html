@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
     <link rel="manifest" href="manifest.json">
-    <title>Sinans Wetter</title>
+    <link rel="apple-touch-icon" href="icon.png">
+    <title>Panda Wetter</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -16,11 +17,11 @@
             --card-bg: #1c1c1e;
             --text-main: #ffffff;
             --text-muted: #8e8e93;
-            --accent-red: #ff3b30;
+            --accent-red: #e63946;
             --accent-blue: #5e8bba;
             --border-color: #333333;
             --bar-bg: #252525;
-            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
         }
 
         body.light-mode {
@@ -54,7 +55,7 @@
         .logo-white { background: #e0e0e0; padding: 4px 8px; color: black; }
         .header-icons { display: flex; gap: 15px; font-size: 22px; color: var(--text-main); cursor: pointer; }
 
-        /* Sub-Pages (Info, Orte) */
+        /* Sub-Pages */
         .sub-page {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg-color); z-index: 200;
@@ -80,15 +81,14 @@
         }
         .info-box h3 { font-size: 12px; color: var(--accent-red); letter-spacing: 1px; margin-bottom: 15px; text-transform: uppercase; font-weight: 700;}
         .info-box p { font-size: 14px; line-height: 1.5; margin-bottom: 15px; color: var(--text-main); }
-        .info-box a { color: var(--text-muted); text-decoration: none; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;}
         
-        .theme-toggle { display: flex; gap: 10px; margin-top: 15px; }
-        .theme-btn {
+        .toggle-group { display: flex; gap: 10px; margin-top: 15px; }
+        .toggle-btn {
             flex: 1; padding: 12px; border-radius: 20px; border: 1px solid var(--border-color);
             background: transparent; color: var(--text-main); font-weight: 600; letter-spacing: 1px;
-            cursor: pointer; transition: 0.2s;
+            cursor: pointer; transition: 0.2s; font-size: 14px;
         }
-        .theme-btn.active { background: var(--accent-red); color: white; border-color: var(--accent-red); }
+        .toggle-btn.active { background: var(--accent-red); color: white; border-color: var(--accent-red); }
 
         .search-bar {
             background: var(--card-bg); border: 1px solid var(--border-color);
@@ -117,7 +117,7 @@
         
         .no-favs { text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 20px; line-height: 1.5; }
 
-        /* Main App Styles */
+        /* Main App */
         .location-header { padding: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
         .location-header h1 { font-size: 36px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
         .location-header p { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin-top: 5px; }
@@ -157,12 +157,18 @@
         .status-dot.loading { background-color: #ffcc00; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-        .nav-tabs { display: flex; gap: 10px; padding: 0 20px 20px 20px; overflow-x: auto; scrollbar-width: none; }
-        .nav-tabs::-webkit-scrollbar { display: none; }
+        /* TABS - Optimiert für 1 Zeile */
+        .nav-tabs { 
+            display: flex; 
+            gap: 6px; 
+            padding: 0 15px 20px 15px; 
+            justify-content: space-between;
+        }
         .tab-btn {
             background: transparent; border: 1px solid var(--border-color); color: var(--text-main);
-            padding: 10px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;
-            letter-spacing: 1px; white-space: nowrap; transition: all 0.2s;
+            padding: 10px 4px; border-radius: 20px; font-size: 11px; font-weight: 600;
+            letter-spacing: 0px; white-space: nowrap; transition: all 0.2s;
+            flex: 1; text-align: center;
         }
         .tab-btn.active { background-color: var(--accent-red); border-color: var(--accent-red); color: white; }
 
@@ -231,8 +237,8 @@
     <div id="main-view">
         <div class="header-top">
             <div class="logo-area">
-                <div class="logo-red">SINANS</div>
-                <div class="logo-white">WETTER</div>
+                <div class="logo-red">PANDA</div>
+                <div class="logo-white" data-i18n="app_title">WETTER</div>
             </div>
             <div class="header-icons">
                 <span id="search-trigger">🔍</span>
@@ -251,25 +257,25 @@
 
         <div class="current-weather">
             <div class="temp-huge" id="current-temp">-</div>
-            <img src="https://github.com/luoboteanjing-netizen/Robs-Wetter-App/frosch-placeholder.png" alt="Frosch" class="frog-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><text y=\'50\' font-size=\'50\'>🐸</text></svg>'">
+            <img src="icon.png" alt="Panda" class="frog-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><text y=\'50\' font-size=\'50\'>🐼</text></svg>'">
             <div class="weather-icon-main" id="current-icon">☁️</div>
         </div>
 
         <div class="weather-details">
             <div class="condition-text" id="current-condition">-</div>
             <div class="sub-details">
-                <span>GEFÜHLT <span id="feels-like">-°</span></span> • 
+                <span><span data-i18n="feels_like">GEFÜHLT</span> <span id="feels-like">-°</span></span> • 
                 <span>H <span id="high-temp">-°</span></span> 
                 <span>T <span id="low-temp">-°</span></span> • 
-                <span>WIND <span id="wind-speed">-</span> KM/H</span>
+                <span><span data-i18n="wind">WIND</span> <span id="wind-speed">-</span> KM/H</span>
             </div>
         </div>
 
         <div class="alert-box" style="display:none;">
-            <div class="alert-label">GLEICH</div>
+            <div class="alert-label" data-i18n="now">GLEICH</div>
             <div class="alert-text">
-                <h4>Trocken bis mindestens 22 Uhr</h4>
-                <p>Höchstwert -° gegen 15 Uhr</p>
+                <h4 id="alert-title">-</h4>
+                <p id="alert-desc">-</p>
             </div>
         </div>
 
@@ -279,47 +285,47 @@
         </div>
 
         <div class="nav-tabs">
-            <button class="tab-btn active" data-target="tab-48h">48 STD</button>
-            <button class="tab-btn" data-target="tab-3d">3 TAGE</button>
-            <button class="tab-btn" data-target="tab-7d">7 TAGE</button>
-            <button class="tab-btn" data-target="tab-16d">16 TAGE</button>
-            <button class="tab-btn" data-target="tab-radar">RADAR</button>
+            <button class="tab-btn active" data-target="tab-48h" data-i18n="tab_48h">48 STD</button>
+            <button class="tab-btn" data-target="tab-3d" data-i18n="tab_3d">3 TAGE</button>
+            <button class="tab-btn" data-target="tab-7d" data-i18n="tab_7d">7 TAGE</button>
+            <button class="tab-btn" data-target="tab-16d" data-i18n="tab_16d">16 TAGE</button>
+            <button class="tab-btn" data-target="tab-radar" data-i18n="tab_radar">RADAR</button>
         </div>
 
         <div class="card active" id="tab-48h">
             <div class="graph-header">
-                <span>STUNDENVERLAUF</span>
-                <span>48 STD</span>
+                <span data-i18n="hourly">STUNDENVERLAUF</span>
+                <span data-i18n="tab_48h">48 STD</span>
             </div>
             <div class="hourly-scroll" id="hourly-container"></div>
         </div>
 
         <div class="card" id="tab-3d">
-            <div class="graph-header"><span>3 TAGE</span></div>
+            <div class="graph-header"><span data-i18n="tab_3d">3 TAGE</span></div>
             <div id="three-day-container" style="display:flex; gap:10px;"></div>
         </div>
 
         <div class="card" id="tab-7d">
             <div class="graph-header">
-                <span>7 TAGE</span>
-                <span>TIPPEN FÜR VERLAUF</span>
+                <span data-i18n="tab_7d">7 TAGE</span>
+                <span data-i18n="tap_for_details">TIPPEN FÜR VERLAUF</span>
             </div>
             <div class="day-list" id="week-container"></div>
         </div>
 
         <div class="card" id="tab-16d">
             <div class="graph-header">
-                <span>BIS 16 TAGE</span>
+                <span data-i18n="until_16">BIS 16 TAGE</span>
                 <span>ECMWF / GFS</span>
             </div>
             <div class="svg-container" style="height: 120px; background: var(--bar-bg); border-radius: 8px; padding: 10px; margin-bottom:20px;">
                 <svg width="100%" height="100%" viewBox="0 0 300 100" preserveAspectRatio="none">
-                    <path d="M0,50 Q30,40 60,50 T120,40 T180,20 T240,40 T300,40 L300,100 L0,100 Z" fill="rgba(255,59,48,0.2)" />
+                    <path d="M0,50 Q30,40 60,50 T120,40 T180,20 T240,40 T300,40 L300,100 L0,100 Z" fill="rgba(230,57,70,0.2)" />
                     <path d="M0,50 Q30,40 60,50 T120,40 T180,20 T240,40 T300,40" fill="none" stroke="var(--accent-red)" stroke-width="2" />
                     <path d="M0,70 Q30,60 60,70 T120,60 T180,50 T240,60 T300,60 L300,100 L0,100 Z" fill="rgba(94,139,186,0.2)" />
                     <path d="M0,70 Q30,60 60,70 T120,60 T180,50 T240,60 T300,60" fill="none" stroke="var(--accent-blue)" stroke-width="2" />
                     <line x1="120" y1="0" x2="120" y2="100" stroke="var(--accent-red)" stroke-width="1.5" stroke-dasharray="3,3" />
-                    <text x="130" y="15" fill="var(--accent-red)" font-size="8" font-weight="bold">UNSICHER</text>
+                    <text x="130" y="15" fill="var(--accent-red)" font-size="8" font-weight="bold" data-i18n="unsure">UNSICHER</text>
                 </svg>
             </div>
             <div class="day-list" id="longterm-container"></div>
@@ -330,44 +336,44 @@
             <div class="radar-controls">
                 <div class="play-btn">▶</div>
                 <div>
-                    <div class="time-display">JETZT</div>
-                    <div class="time-lbl">RADAR (DWD)</div>
+                    <div class="time-display" data-i18n="now">JETZT</div>
+                    <div class="time-lbl" data-i18n="radar_dwd">RADAR (DWD)</div>
                 </div>
             </div>
             <div class="timeline"><div class="timeline-thumb"></div></div>
             <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-top: 10px;">
-                <span>-6 STD</span><span>JETZT</span><span>+2 STD</span>
+                <span>-6 STD</span><span data-i18n="now">JETZT</span><span>+2 STD</span>
             </div>
         </div>
 
         <div class="footer">
-            Weather data by <a href="https://open-meteo.com/" target="_blank">Open-Meteo.com</a> &nbsp; <strong id="footer-info-trigger" style="cursor:pointer;">QUELLEN</strong> ⌄
+            <span data-i18n="weather_data_by">Wetterdaten von</span> <a href="https://open-meteo.com/" target="_blank">Open-Meteo.com</a> &nbsp; <strong id="footer-info-trigger" style="cursor:pointer;" data-i18n="sources">QUELLEN</strong> ⌄
         </div>
     </div>
 
     <div class="sub-page" id="page-orte">
         <div class="sub-header">
             <div class="back-btn" onclick="closePage('page-orte')">‹</div>
-            <div class="sub-title">ORTE</div>
-            <div class="logo-area"><div class="logo-red">SINANS</div><div class="logo-white">WETTER</div></div>
+            <div class="sub-title" data-i18n="places">ORTE</div>
+            <div class="logo-area"><div class="logo-red">PANDA</div><div class="logo-white" data-i18n="app_title">WETTER</div></div>
         </div>
         <div class="sub-content">
             <div class="search-bar">
                 <span>🔍</span>
-                <input type="text" id="orte-search-input" placeholder="Stadt suchen ...">
+                <input type="text" id="orte-search-input" data-i18n-placeholder="search_placeholder" placeholder="Stadt suchen ...">
             </div>
             <div id="orte-search-results" class="search-results-dropdown"></div>
 
-            <div class="section-label">MEIN STANDORT</div>
+            <div class="section-label" data-i18n="my_location">MEIN STANDORT</div>
             <div class="city-card" onclick="loadLocation()">
                 <div>
                     <h4 id="orte-current-city">Prüm</h4>
-                    <p>AKTUELLER STANDORT</p>
+                    <p data-i18n="current_location">AKTUELLER STANDORT</p>
                 </div>
                 <div class="city-temp" id="orte-current-temp">-° <span>--:--</span></div>
             </div>
 
-            <div class="section-label" style="margin-top:30px;">FAVORITEN</div>
+            <div class="section-label" style="margin-top:30px;" data-i18n="favorites">FAVORITEN</div>
             <div id="fav-list"></div>
         </div>
     </div>
@@ -375,45 +381,121 @@
     <div class="sub-page" id="page-info">
         <div class="sub-header">
             <div class="back-btn" onclick="closePage('page-info')">‹</div>
-            <div class="sub-title">INFO</div>
-            <div class="logo-area"><div class="logo-red">SINANS</div><div class="logo-white">WETTER</div></div>
+            <div class="sub-title" data-i18n="info">INFO</div>
+            <div class="logo-area"><div class="logo-red">PANDA</div><div class="logo-white" data-i18n="app_title">WETTER</div></div>
         </div>
         <div class="sub-content">
             <div class="info-box">
-                <h3>DARSTELLUNG</h3>
-                <div class="theme-toggle">
-                    <button class="theme-btn" onclick="setTheme('auto')">AUTO</button>
-                    <button class="theme-btn" onclick="setTheme('light')">HELL</button>
-                    <button class="theme-btn active" onclick="setTheme('dark')">DUNKEL</button>
+                <h3 data-i18n="language">SPRACHE</h3>
+                <div class="toggle-group">
+                    <button class="toggle-btn" onclick="setLang('de')" id="btn-de">DE</button>
+                    <button class="toggle-btn" onclick="setLang('en')" id="btn-en">EN</button>
+                    <button class="toggle-btn" onclick="setLang('zh')" id="btn-zh">中文</button>
                 </div>
-                <p style="margin-top:10px; font-size:12px; color:var(--text-muted);">Gilt auch nachts.</p>
             </div>
             <div class="info-box">
-                <h3>QUELLEN</h3>
-                <p><strong style="color:var(--accent-red);">Weather data by Open-Meteo.com</strong><br>Vorhersage-API, Ensemble-API und Städtesuche. Daten unter CC BY 4.0.</p>
-                <p><strong>Deutscher Wetterdienst (DWD)</strong><br>Modell ICON-D2 (0–48 Std), MOSMIX-Stationsvorhersage.</p>
-                <p><strong>ECMWF</strong><br>Modell IFS (9 km) ab Tag 3 und Ensemble ENS für die Langfrist.</p>
+                <h3 data-i18n="display">DARSTELLUNG</h3>
+                <div class="toggle-group">
+                    <button class="toggle-btn" onclick="setTheme('auto')" id="btn-theme-auto" data-i18n="auto">AUTO</button>
+                    <button class="toggle-btn" onclick="setTheme('light')" id="btn-theme-light" data-i18n="light">HELL</button>
+                    <button class="toggle-btn" onclick="setTheme('dark')" id="btn-theme-dark" data-i18n="dark">DUNKEL</button>
+                </div>
             </div>
             <div class="info-box">
-                <h3>DATENSCHUTZ</h3>
-                <p>Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
+                <h3 data-i18n="sources">QUELLEN</h3>
+                <p><strong style="color:var(--accent-red);">Weather data by Open-Meteo.com</strong></p>
+                <p><strong>Deutscher Wetterdienst (DWD)</strong></p>
+                <p><strong>ECMWF</strong></p>
+            </div>
+            <div class="info-box">
+                <h3 data-i18n="privacy">DATENSCHUTZ</h3>
+                <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
     </div>
 
     <script>
-        let currentLat = 50.2083;
-        let currentLon = 6.4231;
-        let currentCityName = "PRÜM";
-        let currentRegionName = "RHEINLAND-PFALZ, DEUTSCHLAND";
-        let map = null;
-        let searchTimeout = null;
-        let favorites = JSON.parse(localStorage.getItem('sinans_favs')) || [];
+        // --- 1. ÜBERSETZUNGEN (i18n) ---
+        const translations = {
+            de: {
+                app_title: "WETTER", places: "ORTE", info: "INFO",
+                search_placeholder: "Stadt suchen ...", my_location: "MEIN STANDORT",
+                current_location: "AKTUELLER STANDORT", favorites: "FAVORITEN",
+                language: "SPRACHE", display: "DARSTELLUNG", auto: "AUTO", light: "HELL", dark: "DUNKEL",
+                sources: "QUELLEN", privacy: "DATENSCHUTZ", privacy_text: "Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.",
+                feels_like: "GEFÜHLT", wind: "WIND", now: "JETZT", tap_for_details: "TIPPEN FÜR VERLAUF",
+                tab_48h: "48 STD", tab_3d: "3 TAGE", tab_7d: "7 TAGE", tab_16d: "16 TAGE", tab_radar: "RADAR",
+                hourly: "STUNDENVERLAUF", until_16: "BIS 16 TAGE", unsure: "UNSICHER", radar_dwd: "RADAR (DWD)",
+                weather_data_by: "Wetterdaten von",
+                today: "Heute", tomorrow: "Morgen", day: "Tag", rain: "Regen",
+                no_favs: "Noch keine Favoriten. Suche oben nach einer Stadt und tippe auf den Stern.",
+                loading: "LADE DATEN...", offline: "OFFLINE (CACHE)", stand: "STAND",
+                clear: "Klar", partly_cloudy: "Teilweise bewölkt", cloudy: "Bedeckt", fog: "Nebel",
+                rain_c: "Regen", snow: "Schnee", showers: "Regenschauer", snow_showers: "Schneeschauer", thunder: "Gewitter",
+                dry_until: "Trocken bis mindestens 22 Uhr", max_temp: "Höchstwert", around: "gegen 15 Uhr", rain_risk: "Regenrisiko",
+                days: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+            },
+            en: {
+                app_title: "WEATHER", places: "PLACES", info: "INFO",
+                search_placeholder: "Search city ...", my_location: "MY LOCATION",
+                current_location: "CURRENT LOCATION", favorites: "FAVORITES",
+                language: "LANGUAGE", display: "APPEARANCE", auto: "AUTO", light: "LIGHT", dark: "DARK",
+                sources: "SOURCES", privacy: "PRIVACY", privacy_text: "No tracking, no analytics, no ads, no accounts. The app only requests weather services with coordinates. Favorites, location and forecasts remain on this device.",
+                feels_like: "FEELS LIKE", wind: "WIND", now: "NOW", tap_for_details: "TAP FOR DETAILS",
+                tab_48h: "48 HRS", tab_3d: "3 DAYS", tab_7d: "7 DAYS", tab_16d: "16 DAYS", tab_radar: "RADAR",
+                hourly: "HOURLY FORECAST", until_16: "UP TO 16 DAYS", unsure: "UNCERTAIN", radar_dwd: "RADAR (DWD)",
+                weather_data_by: "Weather data by",
+                today: "Today", tomorrow: "Tomorrow", day: "Day", rain: "Rain",
+                no_favs: "No favorites yet. Search for a city above and tap the star.",
+                loading: "LOADING...", offline: "OFFLINE (CACHE)", stand: "AS OF",
+                clear: "Clear", partly_cloudy: "Partly cloudy", cloudy: "Overcast", fog: "Fog",
+                rain_c: "Rain", snow: "Snow", showers: "Showers", snow_showers: "Snow showers", thunder: "Thunderstorm",
+                dry_until: "Dry until at least 10 PM", max_temp: "Max", around: "around 3 PM", rain_risk: "Rain risk",
+                days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+            },
+            zh: {
+                app_title: "天气", places: "地点", info: "信息",
+                search_placeholder: "搜索城市 ...", my_location: "我的位置",
+                current_location: "当前位置", favorites: "收藏夹",
+                language: "语言", display: "显示", auto: "自动", light: "浅色", dark: "深色",
+                sources: "数据来源", privacy: "隐私", privacy_text: "无追踪，无分析，无广告，无账户。应用仅使用坐标请求天气服务。收藏、位置和预报保留在本设备上。",
+                feels_like: "体感温度", wind: "风速", now: "现在", tap_for_details: "点击查看详情",
+                tab_48h: "48小时", tab_3d: "3天", tab_7d: "7天", tab_16d: "16天", tab_radar: "雷达",
+                hourly: "每小时预报", until_16: "16天预报", unsure: "不确定", radar_dwd: "雷达 (DWD)",
+                weather_data_by: "天气数据由",
+                today: "今天", tomorrow: "明天", day: "天", rain: "雨",
+                no_favs: "暂无收藏。在上方搜索城市并点击星号。",
+                loading: "加载中...", offline: "离线 (缓存)", stand: "截至",
+                clear: "晴", partly_cloudy: "多云", cloudy: "阴", fog: "雾",
+                rain_c: "雨", snow: "雪", showers: "阵雨", snow_showers: "阵雪", thunder: "雷暴",
+                dry_until: "至少到晚上10点干燥", max_temp: "最高", around: "约下午3点", rain_risk: "降雨概率",
+                days: ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+            }
+        };
 
-        window.onload = () => {
-            const savedTheme = localStorage.getItem('sinans_theme') || 'dark';
-            setTheme(savedTheme, false);
+        let currentLang = localStorage.getItem('panda_lang') || 'de';
+        
+        function t(key) {
+            return translations[currentLang][key] || key;
+        }
+
+        function setLang(lang) {
+            currentLang = lang;
+            localStorage.setItem('panda_lang', lang);
             
+            // Buttons updaten
+            document.querySelectorAll('.toggle-group .toggle-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${lang}`).classList.add('active');
+
+            // Alle Elemente mit data-i18n übersetzen
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                el.innerText = t(el.getAttribute('data-i18n'));
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+            });
+
+            // UI neu rendern, falls Daten vorhanden sind
             const cachedData = localStorage.getItem('sinans_last_weather');
             if(cachedData) {
                 try {
@@ -421,14 +503,29 @@
                     updateUI(parsed.data, parsed.city, parsed.region, parsed.timestamp);
                 } catch(e) {}
             }
+            updateFavList();
+            setStatus(t('stand') + ' ' + formatTime(new Date()), false);
+        }
+
+        // --- 2. STATE ---
+        let currentLat = 50.2083;
+        let currentLon = 6.4231;
+        let currentCityName = "PRÜM";
+        let currentRegionName = "RHEINLAND-PFALZ, DEUTSCHLAND";
+        let map = null;
+        let searchTimeout = null;
+        let favorites = JSON.parse(localStorage.getItem('panda_favs')) || [];
+
+        window.onload = () => {
+            const savedTheme = localStorage.getItem('panda_theme') || 'dark';
+            setTheme(savedTheme, false);
+            setLang(currentLang); // Lädt Sprache und triggert UI Update
             
             if(navigator.onLine) {
                 fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
             } else {
-                setStatus("OFFLINE (CACHE)", false);
+                setStatus(t('offline'), false);
             }
-            
-            updateFavList();
             checkIfCurrentIsFav();
         };
 
@@ -454,25 +551,27 @@
             fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
         };
 
+        // --- 3. THEME ---
         function setTheme(theme, save=true) {
-            document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('[id^="btn-theme"]').forEach(b => b.classList.remove('active'));
             if(theme === 'auto') {
-                if(save) localStorage.setItem('sinans_theme', 'auto');
-                document.querySelectorAll('.theme-btn')[0].classList.add('active');
+                if(save) localStorage.setItem('panda_theme', 'auto');
+                document.getElementById('btn-theme-auto').classList.add('active');
                 if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
                     document.body.classList.add('light-mode');
                 } else { document.body.classList.remove('light-mode'); }
             } else if (theme === 'light') {
-                if(save) localStorage.setItem('sinans_theme', 'light');
-                document.querySelectorAll('.theme-btn')[1].classList.add('active');
+                if(save) localStorage.setItem('panda_theme', 'light');
+                document.getElementById('btn-theme-light').classList.add('active');
                 document.body.classList.add('light-mode');
             } else {
-                if(save) localStorage.setItem('sinans_theme', 'dark');
-                document.querySelectorAll('.theme-btn')[2].classList.add('active');
+                if(save) localStorage.setItem('panda_theme', 'dark');
+                document.getElementById('btn-theme-dark').classList.add('active');
                 document.body.classList.remove('light-mode');
             }
         }
 
+        // --- 4. SUCHE ---
         const orteSearchInput = document.getElementById('orte-search-input');
         const orteSearchResults = document.getElementById('orte-search-results');
 
@@ -483,7 +582,7 @@
             
             searchTimeout = setTimeout(async () => {
                 try {
-                    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=de&format=json`);
+                    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=${currentLang}&format=json`);
                     const data = await res.json();
                     orteSearchResults.innerHTML = '';
                     if (data.results) {
@@ -509,10 +608,11 @@
             currentLat = lat; currentLon = lon; currentCityName = name; currentRegionName = region;
             if(map) map.setView([currentLat, currentLon], 9);
             checkIfCurrentIsFav();
-            setStatus("LADE DATEN...", true);
+            setStatus(t('loading'), true);
             fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
         }
 
+        // --- 5. FAVORITEN ---
         function checkIfCurrentIsFav() {
             const isFav = favorites.some(f => f.name === currentCityName);
             document.getElementById('fav-toggle').innerText = isFav ? '★' : '☆';
@@ -526,7 +626,7 @@
             } else {
                 favorites.push({name: currentCityName, region: currentRegionName, lat: currentLat, lon: currentLon});
             }
-            localStorage.setItem('sinans_favs', JSON.stringify(favorites));
+            localStorage.setItem('panda_favs', JSON.stringify(favorites));
             checkIfCurrentIsFav();
             updateFavList();
         };
@@ -536,7 +636,7 @@
             if(favorites.length === 0) {
                 favList.innerHTML = `
                 <div style="display:flex; gap:15px; align-items:center; margin-top:20px;">
-                    <div class="no-favs" style="text-align:left; margin:0;">Noch keine Favoriten. Suche oben nach einer Stadt und tippe auf den Stern.</div>
+                    <div class="no-favs" style="text-align:left; margin:0;">${t('no_favs')}</div>
                 </div>`;
                 return;
             }
@@ -568,40 +668,38 @@
 
         function removeFav(index) {
             favorites.splice(index, 1);
-            localStorage.setItem('sinans_favs', JSON.stringify(favorites));
+            localStorage.setItem('panda_favs', JSON.stringify(favorites));
             updateFavList();
             checkIfCurrentIsFav();
         }
 
         function loadLocation() {
-            if (!navigator.geolocation) { alert("Dein Browser unterstützt keine Standortbestimmung."); return; }
-            setStatus("SUCHE STANDORT...", true);
+            if (!navigator.geolocation) { alert("Geolocation not supported."); return; }
+            setStatus(t('loading'), true);
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
-                let name = "MEIN STANDORT";
-                let region = "AKTUELLE POSITION";
+                let name = "MY LOCATION";
+                let region = "CURRENT POSITION";
                 try {
-                    const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=de`);
+                    const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=${currentLang}`);
                     const data = await res.json();
-                    name = (data.city || data.locality || "MEIN STANDORT").toUpperCase();
+                    name = (data.city || data.locality || "MY LOCATION").toUpperCase();
                     region = `${data.principalSubdivision ? data.principalSubdivision.toUpperCase() + ', ' : ''}${data.countryName.toUpperCase()}`;
                 } catch(e) {}
                 
                 switchCity(lat, lon, name, region);
                 closePage('page-orte');
             }, () => { 
-                alert("Standort konnte nicht ermittelt werden. Erlaube den Zugriff.");
-                setStatus("FEHLER", false);
+                alert("Location denied.");
+                setStatus("ERROR", false);
             });
         }
         document.getElementById('geo-trigger').onclick = loadLocation;
 
+        // --- 6. WETTER DATEN ---
         async function fetchWeather(lat, lon, name, region) {
-            setStatus("LADE DATEN...", true);
-            
-            // Fehlertolerante Abfrage ohne das strikte "models" Attribut, 
-            // um API-Fehler zu vermeiden. Open-Meteo wählt automatisch das Beste.
+            setStatus(t('loading'), true);
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=auto`;
             
             try {
@@ -613,11 +711,11 @@
                 localStorage.setItem('sinans_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
                 
                 updateUI(data, name, region, timestamp);
-                setStatus(`STAND ${formatTime(new Date(timestamp))}`, false);
+                setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false);
             } catch (error) {
                 console.error("Fehler beim Laden:", error);
-                setStatus("OFFLINE (CACHE)", false);
-                alert("Live-Daten konnten nicht geladen werden. Prüfe deine Internetverbindung oder deaktiviere Adblocker.");
+                setStatus(t('offline'), false);
+                alert("Live data could not be loaded.");
             }
         }
 
@@ -635,20 +733,33 @@
         }
 
         function getWeatherText(code) {
-            if (code === 0) return 'Klar';
-            if (code === 1 || code === 2) return 'Teilweise bewölkt';
-            if (code === 3) return 'Bedeckt';
-            if (code === 45 || code === 48) return 'Nebel';
-            if (code >= 51 && code <= 67) return 'Regen';
-            if (code >= 71 && code <= 77) return 'Schnee';
-            if (code >= 80 && code <= 82) return 'Regenschauer';
-            if (code >= 85 && code <= 86) return 'Schneeschauer';
-            if (code >= 95) return 'Gewitter';
-            return 'Bedeckt';
+            if (code === 0) return t('clear');
+            if (code === 1 || code === 2) return t('partly_cloudy');
+            if (code === 3) return t('cloudy');
+            if (code === 45 || code === 48) return t('fog');
+            if (code >= 51 && code <= 67) return t('rain_c');
+            if (code >= 71 && code <= 77) return t('snow');
+            if (code >= 80 && code <= 82) return t('showers');
+            if (code >= 85 && code <= 86) return t('snow_showers');
+            if (code >= 95) return t('thunder');
+            return t('cloudy');
         }
 
         function formatTime(date) {
-            return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            return date.toLocaleTimeString(currentLang === 'zh' ? 'zh-CN' : currentLang, { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function getFormattedDate(date, formatType) {
+            if(currentLang === 'zh') {
+                if(formatType === 'day') return `${date.getMonth()+1}月${date.getDate()}日`;
+                return t('days')[date.getDay()];
+            } else if (currentLang === 'en') {
+                if(formatType === 'day') return `${date.getMonth()+1}/${date.getDate()}`;
+                return t('days')[date.getDay()];
+            } else {
+                if(formatType === 'day') return `${date.getDate()}.${date.getMonth()+1}.`;
+                return t('days')[date.getDay()];
+            }
         }
 
         function updateUI(data, name, region, timestamp) {
@@ -673,11 +784,11 @@
             const alertBox = document.querySelector('.alert-box');
             alertBox.style.display = 'flex';
             if (rainProb > 50) {
-                alertBox.querySelector('h4').innerText = `Regenrisiko (${rainProb}%)`;
-                alertBox.querySelector('p').innerText = `Höchstwert ${Math.round(daily.temperature_2m_max[0])}°`;
+                document.getElementById('alert-title').innerText = `${t('rain_risk')} (${rainProb}%)`;
+                document.getElementById('alert-desc').innerText = `${t('max_temp')} ${Math.round(daily.temperature_2m_max[0])}°`;
             } else {
-                alertBox.querySelector('h4').innerText = 'Trocken bis mindestens 22 Uhr';
-                alertBox.querySelector('p').innerText = `Höchstwert ${Math.round(daily.temperature_2m_max[0])}° gegen 15 Uhr`;
+                document.getElementById('alert-title').innerText = t('dry_until');
+                document.getElementById('alert-desc').innerText = `${t('max_temp')} ${Math.round(daily.temperature_2m_max[0])}° ${t('around')}`;
             }
 
             const hourlyContainer = document.getElementById('hourly-container');
@@ -689,7 +800,7 @@
             for (let i = startIndex; i < startIndex + 12; i++) {
                 if(!hourly.time[i]) break;
                 const time = new Date(hourly.time[i]);
-                const label = i === startIndex ? 'JETZT' : time.getHours() + ' Uhr';
+                const label = i === startIndex ? t('now') : time.getHours() + (currentLang==='zh'?'时':' Uhr');
                 const temp = Math.round(hourly.temperature_2m[i]);
                 const icon = getWeatherIcon(hourly.weather_code[i], 1);
                 
@@ -704,10 +815,9 @@
 
             const threeDayContainer = document.getElementById('three-day-container');
             threeDayContainer.innerHTML = '';
-            const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
             for (let i = 0; i < 3; i++) {
                 const date = new Date(daily.time[i]);
-                let dayLabel = i === 0 ? 'HEUTE' : i === 1 ? 'MORGEN' : dayNames[date.getDay()];
+                let dayLabel = i === 0 ? t('today') : i === 1 ? t('tomorrow') : t('days')[date.getDay()];
                 const maxT = Math.round(daily.temperature_2m_max[i]);
                 const minT = Math.round(daily.temperature_2m_min[i]);
                 const icon = getWeatherIcon(daily.weather_code[i], 1);
@@ -715,7 +825,7 @@
                 
                 threeDayContainer.innerHTML += `
                     <div style="flex:1; background:var(--bar-bg); border-radius:16px; padding:15px; text-align:center;">
-                        <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">${dayLabel}</div>
+                        <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px; text-transform:uppercase;">${dayLabel}</div>
                         <div style="font-size:30px; margin-bottom:10px;">${icon}</div>
                         <div style="font-size:24px; font-weight:700;">${maxT}°</div>
                         <div style="font-size:16px; color:var(--text-muted); margin-bottom:10px;">${minT}°</div>
@@ -729,8 +839,8 @@
 
             for (let i = 0; i < 7; i++) {
                 const date = new Date(daily.time[i]);
-                let dayLabel = i === 0 ? 'Heute' : i === 1 ? 'Morgen' : dayNames[date.getDay()];
-                const dateLabel = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' });
+                let dayLabel = i === 0 ? t('today') : i === 1 ? t('tomorrow') : t('days')[date.getDay()];
+                const dateLabel = getFormattedDate(date, 'day');
                 const maxT = Math.round(daily.temperature_2m_max[i]);
                 const minT = Math.round(daily.temperature_2m_min[i]);
                 const icon = getWeatherIcon(daily.weather_code[i], 1);
@@ -743,7 +853,7 @@
                     <div class="day-row">
                         <div class="day-name">
                             <strong>${dayLabel}</strong>
-                            <span>${dateLabel}.</span>
+                            <span>${dateLabel}</span>
                         </div>
                         <div class="day-icon">${icon}</div>
                         <div class="day-rain">${rain > 0 ? rain + ' %' : ''}</div>
@@ -763,8 +873,8 @@
             
             for (let i = 0; i < 16; i++) {
                 const date = new Date(daily.time[i]);
-                let dayLabel = i === 0 ? 'Heute' : dayNames[date.getDay()];
-                const dateLabel = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' });
+                let dayLabel = i === 0 ? t('today') : t('days')[date.getDay()];
+                const dateLabel = getFormattedDate(date, 'day');
                 const isUnsure = i >= 8;
                 const maxT = Math.round(daily.temperature_2m_max[i]);
                 const minT = Math.round(daily.temperature_2m_min[i]);
@@ -774,7 +884,7 @@
                     <div class="day-row-16">
                         <div class="day-info-16">
                             <strong>${dayLabel} ${dateLabel}</strong>
-                            <span class="${isUnsure ? 'unsure' : ''}">Tag ${i+1} ${isUnsure ? '(Unsicher)' : ''}</span>
+                            <span class="${isUnsure ? 'unsure' : ''}">${t('day')} ${i+1} ${isUnsure ? '('+t('unsure')+')' : ''}</span>
                         </div>
                         <div class="day-temps-16">
                             <span>${maxT}°</span>
@@ -782,13 +892,14 @@
                         </div>
                         <div class="day-rain-16">
                             <span class="pct">${rain} %</span>
-                            <span class="lbl">Regen</span>
+                            <span class="lbl">${t('rain')}</span>
                         </div>
                     </div>
                 `;
             }
         }
 
+        // --- 7. TABS & MAP ---
         document.querySelectorAll('.tab-btn').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
@@ -818,7 +929,7 @@
             }).addTo(map);
 
             L.circleMarker([currentLat, currentLon], {
-                radius: 8, fillColor: "#ff3b30", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.8
+                radius: 8, fillColor: "#e63946", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.8
             }).addTo(map);
         }
     </script>
