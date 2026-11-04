@@ -21,7 +21,7 @@
             --accent-blue: #5e8bba;
             --border-color: #333333;
             --bar-bg: #252525;
-            --day-highlight: rgba(255, 255, 255, 0.05); /* Hintergrund für Tag-Stunden */
+            --day-highlight: rgba(255, 255, 255, 0.05);
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
         }
 
@@ -46,10 +46,10 @@
             transition: background-color 0.3s;
         }
 
-        /* Header (Punkt 4: Padding reduziert) */
+        /* Header */
         .header-top {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 20px 0 20px; /* Oben weniger Platz */
+            padding: 10px 20px 0 20px;
             background-color: var(--bg-color);
             position: sticky; top: 0; z-index: 100;
         }
@@ -131,11 +131,12 @@
             display: flex; justify-content: space-between; align-items: center;
             padding: 0 20px; margin-bottom: 20px; position: relative;
         }
-        /* Punkt 1: Temperatur Schriftart auf Serif (feet) */
+        
+        /* Punkt 1: Zurück zur normalen Schriftart, aber Fett (Bold) */
         .temp-huge { 
-            font-family: "Georgia", "Times New Roman", serif; 
+            font-family: var(--font-family);
             font-size: 90px; 
-            font-weight: 400; 
+            font-weight: 800; /* Fett */
             line-height: 1; 
             position: relative; 
         }
@@ -197,7 +198,6 @@
             min-width: 60px; padding: 10px 5px; border-radius: 8px;
             transition: background-color 0.3s;
         }
-        /* Punkt 3: Heller Hintergrund für Tagesstunden */
         .hourly-item.is-day { background-color: var(--day-highlight); }
         
         .hourly-item .time { font-size: 12px; font-weight: 600; color: var(--text-muted); }
@@ -205,9 +205,9 @@
         .hourly-item .icon { font-size: 22px; }
         .hourly-item .temp { font-size: 16px; font-weight: 600; }
         
-        /* Punkt 5: Wind in 48h Ansicht */
+        /* Wind in 48h Ansicht */
         .hourly-item .wind-info { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); margin-top: 2px;}
-        .hourly-item .wind-arrow { display: inline-block; font-size: 10px; transition: transform 0.3s; }
+        .hourly-item .wind-arrow { display: inline-block; font-size: 12px; transition: transform 0.3s; line-height: 1; }
 
         .day-list { display: flex; flex-direction: column; }
         .day-row { display: flex; align-items: center; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid var(--border-color); }
@@ -716,7 +716,6 @@
         // --- 6. WETTER DATEN ---
         async function fetchWeather(lat, lon, name, region) {
             setStatus(t('loading'), true);
-            // WICHTIG: sunrise und sunset hinzugefügt, um Tag/Nacht zu erkennen
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,weather_code,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto`;
             
             try {
@@ -790,7 +789,6 @@
             document.getElementById('orte-current-temp').innerHTML = `${Math.round(current.temperature_2m)}° <span>${formatTime(new Date(timestamp))}</span>`;
 
             document.getElementById('current-temp').innerText = Math.round(current.temperature_2m);
-            // Punkt 2: Mond-Icon Logik
             document.getElementById('current-icon').innerText = getWeatherIcon(current.weather_code, current.is_day);
             document.getElementById('current-condition').innerText = getWeatherText(current.weather_code);
             document.getElementById('feels-like').innerText = Math.round(current.apparent_temperature) + '°';
@@ -816,23 +814,20 @@
             let startIndex = hourly.time.findIndex(t => new Date(t) >= now);
             if (startIndex === -1) startIndex = 0;
 
-            // Sonnenauf- und untergang für heute und morgen ermitteln
-            const sunrises = daily.sunrise.map(d => new Date(d).getTime());
-            const sunsets = daily.sunset.map(d => new Date(d).getTime());
-
             for (let i = startIndex; i < startIndex + 12; i++) {
                 if(!hourly.time[i]) break;
                 const time = new Date(hourly.time[i]);
-                const isDay = hourly.is_day[i] === 1; // Direkt von der API
+                const isDay = hourly.is_day[i] === 1;
                 
                 const label = i === startIndex ? t('now') : time.getHours() + (currentLang==='zh'?'时':' Uhr');
                 const temp = Math.round(hourly.temperature_2m[i]);
                 const windSpeed = Math.round(hourly.wind_speed_10m[i]);
                 const windDir = hourly.wind_direction_10m[i];
                 
-                // Punkt 5: Windpfeil umrechnen (Meteorologische Richtung: 0° = Nord, Pfeil zeigt wohin)
-                // Emoji Pfeil zeigt standardmäßig nach oben rechts (45°). Wir ziehen 45° ab.
-                const arrowRotation = windDir - 45;
+                // Punkt 5 (Korrektur): Der Pfeil zeigt die Richtung an, WOHIN der Wind weht.
+                // Emoji ➤ zeigt standardmäßig nach rechts (90°).
+                // Formel: (Windrichtung + 180) - 90 = Windrichtung + 90
+                const arrowRotation = windDir + 90;
 
                 hourlyContainer.innerHTML += `
                     <div class="hourly-item ${isDay ? 'is-day' : ''}">
