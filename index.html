@@ -49,7 +49,7 @@
         /* Header */
         .header-top {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 20px 0 20px;
+            padding: 20px 20px 0 20px; /* Abstand wieder erhöht */
             background-color: var(--bg-color);
             position: sticky; top: 0; z-index: 100;
         }
@@ -121,7 +121,7 @@
         .no-favs { text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 20px; line-height: 1.5; }
 
         /* Main App */
-        .location-header { padding: 5px 20px 15px 20px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .location-header { padding: 10px 20px 15px 20px; display: flex; justify-content: space-between; align-items: flex-start; }
         .location-header h1 { font-size: 36px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
         .location-header p { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin-top: 5px; }
         .fav-star { font-size: 28px; cursor: pointer; color: var(--text-muted); }
@@ -129,24 +129,30 @@
 
         .current-weather {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 0 20px; margin-bottom: 20px; position: relative;
+            padding: 0 20px; margin-bottom: 5px; position: relative;
         }
         
-        /* Punkt 1: Zurück zur normalen Schriftart, aber Fett (Bold) */
         .temp-huge { 
             font-family: var(--font-family);
             font-size: 90px; 
-            font-weight: 800; /* Fett */
+            font-weight: 800;
             line-height: 1; 
             position: relative; 
         }
         .temp-huge::after { content: '°'; font-size: 40px; position: absolute; top: 10px; right: -25px; }
         .frog-img { width: 120px; height: auto; position: absolute; left: 50%; transform: translateX(-50%); z-index: 10; }
-        .weather-icon-main { font-size: 50px; color: var(--text-muted); }
+        
+        /* Icon Container für Meteocons */
+        .weather-icon-main { width: 70px; height: 70px; }
+        .weather-icon-main img { width: 100%; height: 100%; object-fit: contain; }
 
         .weather-details { padding: 0 20px 20px 20px; }
         .condition-text { font-size: 24px; font-weight: 700; margin-bottom: 5px; }
         .sub-details { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; display: flex; gap: 10px; flex-wrap: wrap;}
+
+        /* Tendenz-Zeile */
+        .trend-info { font-size: 13px; color: var(--text-muted); margin-top: 6px; font-weight: 500; }
+        .trend-info span { color: var(--text-main); font-weight: 600; }
 
         .alert-box {
             background-color: var(--card-bg); border: 1px solid var(--border-color);
@@ -202,7 +208,11 @@
         
         .hourly-item .time { font-size: 12px; font-weight: 600; color: var(--text-muted); }
         .hourly-item .time.now { color: var(--accent-red); }
-        .hourly-item .icon { font-size: 22px; }
+        
+        /* Meteocons in der Stundenleiste */
+        .hourly-item .icon { width: 32px; height: 32px; }
+        .hourly-item .icon img { width: 100%; height: 100%; object-fit: contain; }
+        
         .hourly-item .temp { font-size: 16px; font-weight: 600; }
         
         /* Wind in 48h Ansicht */
@@ -215,7 +225,11 @@
         .day-name { width: 80px; }
         .day-name strong { display: block; font-size: 16px; }
         .day-name span { font-size: 12px; color: var(--text-muted); }
-        .day-icon { font-size: 24px; width: 40px; text-align: center; }
+        
+        /* Meteocons in den Tageslisten */
+        .day-icon { width: 36px; height: 36px; text-align: center; }
+        .day-icon img { width: 100%; height: 100%; object-fit: contain; }
+        
         .day-rain { font-size: 12px; color: var(--accent-blue); width: 50px; text-align: right; font-weight: 600; }
         .day-range { display: flex; align-items: center; gap: 10px; width: 100px; justify-content: flex-end; }
         .day-range span { font-size: 16px; font-weight: 600; }
@@ -228,6 +242,10 @@
         .day-info-16 strong { font-size: 16px; display: block; }
         .day-info-16 span { font-size: 12px; color: var(--text-muted); }
         .day-info-16 .unsure { color: var(--accent-red); }
+        
+        .day-icon-16 { width: 30px; height: 30px; margin-right: 10px; }
+        .day-icon-16 img { width: 100%; height: 100%; object-fit: contain; }
+
         .day-temps-16 { display: flex; flex-direction: column; font-size: 16px; font-weight: 600; }
         .day-temps-16 span:last-child { font-size: 12px; color: var(--text-muted); font-weight: 400; }
         .day-rain-16 { text-align: right; }
@@ -277,7 +295,8 @@
         <div class="current-weather">
             <div class="temp-huge" id="current-temp">-</div>
             <img src="icon.png" alt="Panda" class="frog-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><text y=\'50\' font-size=\'50\'>🐼</text></svg>'">
-            <div class="weather-icon-main" id="current-icon">☁️</div>
+            <!-- Meteocons Container für das aktuelle Wetter -->
+            <div class="weather-icon-main" id="current-icon"></div>
         </div>
 
         <div class="weather-details">
@@ -288,6 +307,8 @@
                 <span>T <span id="low-temp">-°</span></span> • 
                 <span><span data-i18n="wind">WIND</span> <span id="wind-speed">-</span> KM/H</span>
             </div>
+            <!-- Tendenz-Zeile -->
+            <div class="trend-info" id="trend-info" style="display: none;"></div>
         </div>
 
         <div class="alert-box" style="display:none;">
@@ -452,7 +473,8 @@
                 clear: "Klar", partly_cloudy: "Teilweise bewölkt", cloudy: "Bedeckt", fog: "Nebel",
                 rain_c: "Regen", snow: "Schnee", showers: "Regenschauer", snow_showers: "Schneeschauer", thunder: "Gewitter",
                 dry_until: "Trocken bis mindestens 22 Uhr", max_temp: "Höchstwert", around: "gegen 15 Uhr", rain_risk: "Regenrisiko",
-                days: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+                days: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
+                trend_high: "Höchstwert", trend_low: "Tiefstwert", trend_around: "gegen"
             },
             en: {
                 app_title: "WEATHER", places: "PLACES", info: "INFO",
@@ -470,7 +492,8 @@
                 clear: "Clear", partly_cloudy: "Partly cloudy", cloudy: "Overcast", fog: "Fog",
                 rain_c: "Rain", snow: "Snow", showers: "Showers", snow_showers: "Snow showers", thunder: "Thunderstorm",
                 dry_until: "Dry until at least 10 PM", max_temp: "Max", around: "around 3 PM", rain_risk: "Rain risk",
-                days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                trend_high: "High", trend_low: "Low", trend_around: "around"
             },
             zh: {
                 app_title: "天气", places: "地点", info: "信息",
@@ -488,7 +511,8 @@
                 clear: "晴", partly_cloudy: "多云", cloudy: "阴", fog: "雾",
                 rain_c: "雨", snow: "雪", showers: "阵雨", snow_showers: "阵雪", thunder: "雷暴",
                 dry_until: "至少到晚上10点干燥", max_temp: "最高", around: "约下午3点", rain_risk: "降雨概率",
-                days: ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+                days: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
+                trend_high: "最高", trend_low: "最低", trend_around: "约"
             }
         };
 
@@ -735,17 +759,36 @@
             }
         }
 
-        function getWeatherIcon(code, isDay = 1) {
-            if (code === 0) return isDay ? '☀️' : '🌙';
-            if (code === 1 || code === 2) return isDay ? '🌤️' : '☁️';
-            if (code === 3) return '☁️';
-            if (code === 45 || code === 48) return '🌫️';
-            if (code >= 51 && code <= 67) return '🌧️';
-            if (code >= 71 && code <= 77) return '❄️';
-            if (code >= 80 && code <= 82) return '🌧️';
-            if (code >= 85 && code <= 86) return '❄️';
-            if (code >= 95) return '⛈️';
-            return '☁️';
+        // --- METEOICONS MAPPING (WMO Codes) ---
+        // Quelle: https://open-meteo.com/en/docs (WMO Weather interpretation codes)
+        function getMeteoconUrl(code, isDay = 1) {
+            const day = isDay === 1;
+            // Mapping der Open-Meteo WMO-Codes auf die Meteocons-Namen
+            if (code === 0) return day ? 'clear-day' : 'clear-night';
+            if (code === 1) return day ? 'partly-cloudy-day' : 'partly-cloudy-night';
+            if (code === 2) return day ? 'partly-cloudy-day' : 'partly-cloudy-night';
+            if (code === 3) return 'overcast';
+            if (code === 45 || code === 48) return 'fog';
+            if (code === 51 || code === 53 || code === 55) return 'drizzle';
+            if (code === 56 || code === 57) return 'freezing-drizzle';
+            if (code === 61 || code === 63) return 'rain';
+            if (code === 65) return 'heavy-rain';
+            if (code === 66 || code === 67) return 'freezing-rain';
+            if (code === 71 || code === 73) return 'snow';
+            if (code === 75) return 'heavy-snow';
+            if (code === 77) return 'snow-grains';
+            if (code === 80 || code === 81) return 'rain';
+            if (code === 82) return 'heavy-rain';
+            if (code === 85 || code === 86) return 'snow';
+            if (code === 95) return 'thunderstorm';
+            if (code === 96 || code === 99) return 'thunderstorm';
+            return 'overcast';
+        }
+
+        function getWeatherIconHtml(code, isDay = 1) {
+            const iconName = getMeteoconUrl(code, isDay);
+            // Meteocons CDN (statische SVGs)
+            return `<img src="https://cdn.jsdelivr.net/gh/basmilius/weather-icons@master/production/fill/svg/${iconName}.svg" alt="${iconName}">`;
         }
 
         function getWeatherText(code) {
@@ -789,12 +832,44 @@
             document.getElementById('orte-current-temp').innerHTML = `${Math.round(current.temperature_2m)}° <span>${formatTime(new Date(timestamp))}</span>`;
 
             document.getElementById('current-temp').innerText = Math.round(current.temperature_2m);
-            document.getElementById('current-icon').innerText = getWeatherIcon(current.weather_code, current.is_day);
+            // Meteocons für das aktuelle Wetter
+            document.getElementById('current-icon').innerHTML = getWeatherIconHtml(current.weather_code, current.is_day);
             document.getElementById('current-condition').innerText = getWeatherText(current.weather_code);
             document.getElementById('feels-like').innerText = Math.round(current.apparent_temperature) + '°';
             document.getElementById('high-temp').innerText = Math.round(daily.temperature_2m_max[0]) + '°';
             document.getElementById('low-temp').innerText = Math.round(daily.temperature_2m_min[0]) + '°';
             document.getElementById('wind-speed').innerText = Math.round(current.wind_speed_10m);
+
+            // --- TENDENZ (Punkt 1) ---
+            const trendInfo = document.getElementById('trend-info');
+            const now = new Date();
+            let startIndex = hourly.time.findIndex(t => new Date(t) >= now);
+            if (startIndex === -1) startIndex = 0;
+            
+            // Suche in den nächsten 24 Stunden nach dem Extremwert
+            let maxTemp = -Infinity, maxTime = null;
+            let minTemp = Infinity, minTime = null;
+            
+            for (let i = startIndex; i < Math.min(startIndex + 24, hourly.time.length); i++) {
+                const temp = hourly.temperature_2m[i];
+                const time = new Date(hourly.time[i]);
+                if (temp > maxTemp) { maxTemp = temp; maxTime = time; }
+                if (temp < minTemp) { minTemp = temp; minTime = time; }
+            }
+            
+            const currentTemp = current.temperature_2m;
+            // Prüfen, ob die aktuelle Temperatur nahe am Maximum oder Minimum ist
+            const isRising = Math.abs(currentTemp - minTemp) < Math.abs(currentTemp - maxTemp);
+            
+            if (maxTime && minTime) {
+                const targetTime = isRising ? maxTime : minTime;
+                const targetLabel = isRising ? t('trend_high') : t('trend_low');
+                const timeStr = targetTime.getHours() + (currentLang === 'zh' ? '时' : ' Uhr');
+                trendInfo.innerHTML = `${targetLabel} <span>${timeStr}</span>`;
+                trendInfo.style.display = 'block';
+            } else {
+                trendInfo.style.display = 'none';
+            }
 
             const rainProb = daily.precipitation_probability_max[0];
             const alertBox = document.querySelector('.alert-box');
@@ -810,9 +885,6 @@
             // --- 48h VIEW ---
             const hourlyContainer = document.getElementById('hourly-container');
             hourlyContainer.innerHTML = '';
-            const now = new Date();
-            let startIndex = hourly.time.findIndex(t => new Date(t) >= now);
-            if (startIndex === -1) startIndex = 0;
 
             for (let i = startIndex; i < startIndex + 12; i++) {
                 if(!hourly.time[i]) break;
@@ -824,15 +896,12 @@
                 const windSpeed = Math.round(hourly.wind_speed_10m[i]);
                 const windDir = hourly.wind_direction_10m[i];
                 
-                // Punkt 5 (Korrektur): Der Pfeil zeigt die Richtung an, WOHIN der Wind weht.
-                // Emoji ➤ zeigt standardmäßig nach rechts (90°).
-                // Formel: (Windrichtung + 180) - 90 = Windrichtung + 90
                 const arrowRotation = windDir + 90;
 
                 hourlyContainer.innerHTML += `
                     <div class="hourly-item ${isDay ? 'is-day' : ''}">
                         <div class="time ${i===startIndex ? 'now' : ''}">${label}</div>
-                        <div class="icon">${getWeatherIcon(hourly.weather_code[i], isDay)}</div>
+                        <div class="icon">${getWeatherIconHtml(hourly.weather_code[i], isDay)}</div>
                         <div class="temp">${temp}°</div>
                         <div class="wind-info">
                             <span class="wind-arrow" style="transform: rotate(${arrowRotation}deg);">➤</span>
@@ -849,13 +918,12 @@
                 let dayLabel = i === 0 ? t('today') : i === 1 ? t('tomorrow') : t('days')[date.getDay()];
                 const maxT = Math.round(daily.temperature_2m_max[i]);
                 const minT = Math.round(daily.temperature_2m_min[i]);
-                const icon = getWeatherIcon(daily.weather_code[i], 1);
                 const text = getWeatherText(daily.weather_code[i]);
                 
                 threeDayContainer.innerHTML += `
                     <div style="flex:1; background:var(--bar-bg); border-radius:16px; padding:15px; text-align:center;">
                         <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px; text-transform:uppercase;">${dayLabel}</div>
-                        <div style="font-size:30px; margin-bottom:10px;">${icon}</div>
+                        <div class="day-icon" style="margin: 0 auto 10px auto;">${getWeatherIconHtml(daily.weather_code[i], 1)}</div>
                         <div style="font-size:24px; font-weight:700;">${maxT}°</div>
                         <div style="font-size:16px; color:var(--text-muted); margin-bottom:10px;">${minT}°</div>
                         <div style="font-size:14px;">${text}</div>
@@ -872,7 +940,6 @@
                 const dateLabel = getFormattedDate(date, 'day');
                 const maxT = Math.round(daily.temperature_2m_max[i]);
                 const minT = Math.round(daily.temperature_2m_min[i]);
-                const icon = getWeatherIcon(daily.weather_code[i], 1);
                 const rain = daily.precipitation_probability_max[i];
                 
                 const barLeft = Math.max(0, (minT + 5) * 3);
@@ -884,7 +951,7 @@
                             <strong>${dayLabel}</strong>
                             <span>${dateLabel}</span>
                         </div>
-                        <div class="day-icon">${icon}</div>
+                        <div class="day-icon">${getWeatherIconHtml(daily.weather_code[i], 1)}</div>
                         <div class="day-rain">${rain > 0 ? rain + ' %' : ''}</div>
                         <div class="day-range">
                             <span class="low">${minT}°</span>
@@ -915,9 +982,12 @@
                             <strong>${dayLabel} ${dateLabel}</strong>
                             <span class="${isUnsure ? 'unsure' : ''}">${t('day')} ${i+1} ${isUnsure ? '('+t('unsure')+')' : ''}</span>
                         </div>
-                        <div class="day-temps-16">
-                            <span>${maxT}°</span>
-                            <span>${minT}°</span>
+                        <div style="display:flex; align-items:center;">
+                            <div class="day-icon-16">${getWeatherIconHtml(daily.weather_code[i], 1)}</div>
+                            <div class="day-temps-16">
+                                <span>${maxT}°</span>
+                                <span>${minT}°</span>
+                            </div>
                         </div>
                         <div class="day-rain-16">
                             <span class="pct">${rain} %</span>
