@@ -21,7 +21,10 @@
             --accent-blue: #5e8bba;
             --border-color: #333333;
             --bar-bg: #252525;
-            --day-highlight: rgba(255, 255, 255, 0.05);
+            
+            /* Dark Mode: Tag ist etwas heller, Nacht ist dunkel (Standard) */
+            --day-highlight: rgba(255, 255, 255, 0.08);
+            
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
         }
 
@@ -32,7 +35,9 @@
             --text-muted: #6e6e73;
             --border-color: #d1d1d6;
             --bar-bg: #e5e5ea;
-            --day-highlight: rgba(0, 0, 0, 0.05);
+            
+            /* Light Mode: Tag ist weiß (bleibt card-bg), Nacht ist grau */
+            --day-highlight: rgba(0, 0, 0, 0.06); 
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -49,7 +54,7 @@
         /* Header */
         .header-top {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 20px 20px 0 20px; /* Abstand wieder erhöht */
+            padding: 20px 20px 0 20px;
             background-color: var(--bg-color);
             position: sticky; top: 0; z-index: 100;
         }
@@ -142,8 +147,8 @@
         .temp-huge::after { content: '°'; font-size: 40px; position: absolute; top: 10px; right: -25px; }
         .frog-img { width: 120px; height: auto; position: absolute; left: 50%; transform: translateX(-50%); z-index: 10; }
         
-        /* Icon Container für Meteocons */
-        .weather-icon-main { width: 70px; height: 70px; }
+        /* Icon Container */
+        .weather-icon-main { width: 80px; height: 80px; }
         .weather-icon-main img { width: 100%; height: 100%; object-fit: contain; }
 
         .weather-details { padding: 0 20px 20px 20px; }
@@ -204,13 +209,14 @@
             min-width: 60px; padding: 10px 5px; border-radius: 8px;
             transition: background-color 0.3s;
         }
-        .hourly-item.is-day { background-color: var(--day-highlight); }
+        
+        /* Hier wird die Klasse 'is-night' genutzt, um die Nacht zu markieren */
+        .hourly-item.is-night { background-color: var(--day-highlight); }
         
         .hourly-item .time { font-size: 12px; font-weight: 600; color: var(--text-muted); }
         .hourly-item .time.now { color: var(--accent-red); }
         
-        /* Meteocons in der Stundenleiste */
-        .hourly-item .icon { width: 32px; height: 32px; }
+        .hourly-item .icon { width: 36px; height: 36px; }
         .hourly-item .icon img { width: 100%; height: 100%; object-fit: contain; }
         
         .hourly-item .temp { font-size: 16px; font-weight: 600; }
@@ -226,8 +232,7 @@
         .day-name strong { display: block; font-size: 16px; }
         .day-name span { font-size: 12px; color: var(--text-muted); }
         
-        /* Meteocons in den Tageslisten */
-        .day-icon { width: 36px; height: 36px; text-align: center; }
+        .day-icon { width: 40px; height: 40px; text-align: center; }
         .day-icon img { width: 100%; height: 100%; object-fit: contain; }
         
         .day-rain { font-size: 12px; color: var(--accent-blue); width: 50px; text-align: right; font-weight: 600; }
@@ -243,7 +248,7 @@
         .day-info-16 span { font-size: 12px; color: var(--text-muted); }
         .day-info-16 .unsure { color: var(--accent-red); }
         
-        .day-icon-16 { width: 30px; height: 30px; margin-right: 10px; }
+        .day-icon-16 { width: 36px; height: 36px; margin-right: 10px; }
         .day-icon-16 img { width: 100%; height: 100%; object-fit: contain; }
 
         .day-temps-16 { display: flex; flex-direction: column; font-size: 16px; font-weight: 600; }
@@ -295,7 +300,6 @@
         <div class="current-weather">
             <div class="temp-huge" id="current-temp">-</div>
             <img src="icon.png" alt="Panda" class="frog-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><text y=\'50\' font-size=\'50\'>🐼</text></svg>'">
-            <!-- Meteocons Container für das aktuelle Wetter -->
             <div class="weather-icon-main" id="current-icon"></div>
         </div>
 
@@ -307,7 +311,6 @@
                 <span>T <span id="low-temp">-°</span></span> • 
                 <span><span data-i18n="wind">WIND</span> <span id="wind-speed">-</span> KM/H</span>
             </div>
-            <!-- Tendenz-Zeile -->
             <div class="trend-info" id="trend-info" style="display: none;"></div>
         </div>
 
@@ -760,10 +763,8 @@
         }
 
         // --- METEOICONS MAPPING (WMO Codes) ---
-        // Quelle: https://open-meteo.com/en/docs (WMO Weather interpretation codes)
         function getMeteoconUrl(code, isDay = 1) {
             const day = isDay === 1;
-            // Mapping der Open-Meteo WMO-Codes auf die Meteocons-Namen
             if (code === 0) return day ? 'clear-day' : 'clear-night';
             if (code === 1) return day ? 'partly-cloudy-day' : 'partly-cloudy-night';
             if (code === 2) return day ? 'partly-cloudy-day' : 'partly-cloudy-night';
@@ -787,8 +788,8 @@
 
         function getWeatherIconHtml(code, isDay = 1) {
             const iconName = getMeteoconUrl(code, isDay);
-            // Meteocons CDN (statische SVGs)
-            return `<img src="https://cdn.jsdelivr.net/gh/basmilius/weather-icons@master/production/fill/svg/${iconName}.svg" alt="${iconName}">`;
+            // Zuverlässiges Meteocons CDN
+            return `<img src="https://cdn.meteocons.com/static/svg/fill/${iconName}.svg" alt="${iconName}">`;
         }
 
         function getWeatherText(code) {
@@ -832,7 +833,6 @@
             document.getElementById('orte-current-temp').innerHTML = `${Math.round(current.temperature_2m)}° <span>${formatTime(new Date(timestamp))}</span>`;
 
             document.getElementById('current-temp').innerText = Math.round(current.temperature_2m);
-            // Meteocons für das aktuelle Wetter
             document.getElementById('current-icon').innerHTML = getWeatherIconHtml(current.weather_code, current.is_day);
             document.getElementById('current-condition').innerText = getWeatherText(current.weather_code);
             document.getElementById('feels-like').innerText = Math.round(current.apparent_temperature) + '°';
@@ -846,7 +846,6 @@
             let startIndex = hourly.time.findIndex(t => new Date(t) >= now);
             if (startIndex === -1) startIndex = 0;
             
-            // Suche in den nächsten 24 Stunden nach dem Extremwert
             let maxTemp = -Infinity, maxTime = null;
             let minTemp = Infinity, minTime = null;
             
@@ -858,7 +857,6 @@
             }
             
             const currentTemp = current.temperature_2m;
-            // Prüfen, ob die aktuelle Temperatur nahe am Maximum oder Minimum ist
             const isRising = Math.abs(currentTemp - minTemp) < Math.abs(currentTemp - maxTemp);
             
             if (maxTime && minTime) {
@@ -898,8 +896,9 @@
                 
                 const arrowRotation = windDir + 90;
 
+                // NEU: Klasse 'is-night' wenn es dunkel ist, statt 'is-day'
                 hourlyContainer.innerHTML += `
-                    <div class="hourly-item ${isDay ? 'is-day' : ''}">
+                    <div class="hourly-item ${!isDay ? 'is-night' : ''}">
                         <div class="time ${i===startIndex ? 'now' : ''}">${label}</div>
                         <div class="icon">${getWeatherIconHtml(hourly.weather_code[i], isDay)}</div>
                         <div class="temp">${temp}°</div>
