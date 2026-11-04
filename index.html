@@ -21,6 +21,7 @@
             --accent-blue: #5e8bba;
             --border-color: #333333;
             --bar-bg: #252525;
+            --day-highlight: rgba(255, 255, 255, 0.05); /* Hintergrund für Tag-Stunden */
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
         }
 
@@ -31,6 +32,7 @@
             --text-muted: #6e6e73;
             --border-color: #d1d1d6;
             --bar-bg: #e5e5ea;
+            --day-highlight: rgba(0, 0, 0, 0.05);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -44,10 +46,11 @@
             transition: background-color 0.3s;
         }
 
-        /* Header */
+        /* Header (Punkt 4: Padding reduziert) */
         .header-top {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 20px; background-color: var(--bg-color);
+            padding: 10px 20px 0 20px; /* Oben weniger Platz */
+            background-color: var(--bg-color);
             position: sticky; top: 0; z-index: 100;
         }
         .logo-area { display: flex; font-weight: 800; font-size: 14px; letter-spacing: 1px; cursor: pointer; }
@@ -118,7 +121,7 @@
         .no-favs { text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 20px; line-height: 1.5; }
 
         /* Main App */
-        .location-header { padding: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .location-header { padding: 5px 20px 15px 20px; display: flex; justify-content: space-between; align-items: flex-start; }
         .location-header h1 { font-size: 36px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
         .location-header p { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin-top: 5px; }
         .fav-star { font-size: 28px; cursor: pointer; color: var(--text-muted); }
@@ -128,7 +131,14 @@
             display: flex; justify-content: space-between; align-items: center;
             padding: 0 20px; margin-bottom: 20px; position: relative;
         }
-        .temp-huge { font-size: 90px; font-weight: 300; line-height: 1; position: relative; }
+        /* Punkt 1: Temperatur Schriftart auf Serif (feet) */
+        .temp-huge { 
+            font-family: "Georgia", "Times New Roman", serif; 
+            font-size: 90px; 
+            font-weight: 400; 
+            line-height: 1; 
+            position: relative; 
+        }
         .temp-huge::after { content: '°'; font-size: 40px; position: absolute; top: 10px; right: -25px; }
         .frog-img { width: 120px; height: auto; position: absolute; left: 50%; transform: translateX(-50%); z-index: 10; }
         .weather-icon-main { font-size: 50px; color: var(--text-muted); }
@@ -157,13 +167,8 @@
         .status-dot.loading { background-color: #ffcc00; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-        /* TABS - Optimiert für 1 Zeile */
-        .nav-tabs { 
-            display: flex; 
-            gap: 6px; 
-            padding: 0 15px 20px 15px; 
-            justify-content: space-between;
-        }
+        /* TABS */
+        .nav-tabs { display: flex; gap: 6px; padding: 0 15px 20px 15px; justify-content: space-between; }
         .tab-btn {
             background: transparent; border: 1px solid var(--border-color); color: var(--text-main);
             padding: 10px 4px; border-radius: 20px; font-size: 11px; font-weight: 600;
@@ -183,12 +188,26 @@
         .graph-header { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; letter-spacing: 1px; margin-bottom: 20px; color: var(--text-muted); }
         .graph-header span:first-child { color: var(--accent-red); }
 
-        .hourly-scroll { display: flex; overflow-x: auto; scrollbar-width: none; gap: 20px; margin-bottom: 20px; padding-bottom: 10px; }
+        /* 48h Stundenleiste */
+        .hourly-scroll { display: flex; overflow-x: auto; scrollbar-width: none; gap: 0; margin-bottom: 20px; border-radius: 12px; }
         .hourly-scroll::-webkit-scrollbar { display: none; }
-        .hourly-item { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 40px; }
-        .hourly-item .time { font-size: 14px; font-weight: 600; }
-        .hourly-item .icon { font-size: 24px; }
-        .hourly-item .temp { font-size: 18px; font-weight: 600; }
+        
+        .hourly-item { 
+            display: flex; flex-direction: column; align-items: center; gap: 8px; 
+            min-width: 60px; padding: 10px 5px; border-radius: 8px;
+            transition: background-color 0.3s;
+        }
+        /* Punkt 3: Heller Hintergrund für Tagesstunden */
+        .hourly-item.is-day { background-color: var(--day-highlight); }
+        
+        .hourly-item .time { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+        .hourly-item .time.now { color: var(--accent-red); }
+        .hourly-item .icon { font-size: 22px; }
+        .hourly-item .temp { font-size: 16px; font-weight: 600; }
+        
+        /* Punkt 5: Wind in 48h Ansicht */
+        .hourly-item .wind-info { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); margin-top: 2px;}
+        .hourly-item .wind-arrow { display: inline-block; font-size: 10px; transition: transform 0.3s; }
 
         .day-list { display: flex; flex-direction: column; }
         .day-row { display: flex; align-items: center; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid var(--border-color); }
@@ -483,11 +502,9 @@
             currentLang = lang;
             localStorage.setItem('panda_lang', lang);
             
-            // Buttons updaten
             document.querySelectorAll('.toggle-group .toggle-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(`btn-${lang}`).classList.add('active');
 
-            // Alle Elemente mit data-i18n übersetzen
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 el.innerText = t(el.getAttribute('data-i18n'));
             });
@@ -495,8 +512,7 @@
                 el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
             });
 
-            // UI neu rendern, falls Daten vorhanden sind
-            const cachedData = localStorage.getItem('sinans_last_weather');
+            const cachedData = localStorage.getItem('panda_last_weather');
             if(cachedData) {
                 try {
                     const parsed = JSON.parse(cachedData);
@@ -519,7 +535,7 @@
         window.onload = () => {
             const savedTheme = localStorage.getItem('panda_theme') || 'dark';
             setTheme(savedTheme, false);
-            setLang(currentLang); // Lädt Sprache und triggert UI Update
+            setLang(currentLang);
             
             if(navigator.onLine) {
                 fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
@@ -700,7 +716,8 @@
         // --- 6. WETTER DATEN ---
         async function fetchWeather(lat, lon, name, region) {
             setStatus(t('loading'), true);
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=auto`;
+            // WICHTIG: sunrise und sunset hinzugefügt, um Tag/Nacht zu erkennen
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,weather_code,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto`;
             
             try {
                 const response = await fetch(url);
@@ -708,7 +725,7 @@
                 const data = await response.json();
                 
                 const timestamp = new Date().getTime();
-                localStorage.setItem('sinans_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
+                localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
                 
                 updateUI(data, name, region, timestamp);
                 setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false);
@@ -773,6 +790,7 @@
             document.getElementById('orte-current-temp').innerHTML = `${Math.round(current.temperature_2m)}° <span>${formatTime(new Date(timestamp))}</span>`;
 
             document.getElementById('current-temp').innerText = Math.round(current.temperature_2m);
+            // Punkt 2: Mond-Icon Logik
             document.getElementById('current-icon').innerText = getWeatherIcon(current.weather_code, current.is_day);
             document.getElementById('current-condition').innerText = getWeatherText(current.weather_code);
             document.getElementById('feels-like').innerText = Math.round(current.apparent_temperature) + '°';
@@ -791,24 +809,40 @@
                 document.getElementById('alert-desc').innerText = `${t('max_temp')} ${Math.round(daily.temperature_2m_max[0])}° ${t('around')}`;
             }
 
+            // --- 48h VIEW ---
             const hourlyContainer = document.getElementById('hourly-container');
             hourlyContainer.innerHTML = '';
             const now = new Date();
             let startIndex = hourly.time.findIndex(t => new Date(t) >= now);
             if (startIndex === -1) startIndex = 0;
 
+            // Sonnenauf- und untergang für heute und morgen ermitteln
+            const sunrises = daily.sunrise.map(d => new Date(d).getTime());
+            const sunsets = daily.sunset.map(d => new Date(d).getTime());
+
             for (let i = startIndex; i < startIndex + 12; i++) {
                 if(!hourly.time[i]) break;
                 const time = new Date(hourly.time[i]);
+                const isDay = hourly.is_day[i] === 1; // Direkt von der API
+                
                 const label = i === startIndex ? t('now') : time.getHours() + (currentLang==='zh'?'时':' Uhr');
                 const temp = Math.round(hourly.temperature_2m[i]);
-                const icon = getWeatherIcon(hourly.weather_code[i], 1);
+                const windSpeed = Math.round(hourly.wind_speed_10m[i]);
+                const windDir = hourly.wind_direction_10m[i];
                 
+                // Punkt 5: Windpfeil umrechnen (Meteorologische Richtung: 0° = Nord, Pfeil zeigt wohin)
+                // Emoji Pfeil zeigt standardmäßig nach oben rechts (45°). Wir ziehen 45° ab.
+                const arrowRotation = windDir - 45;
+
                 hourlyContainer.innerHTML += `
-                    <div class="hourly-item">
-                        <div class="time" style="${i===startIndex ? 'color:var(--accent-red)' : ''}">${label}</div>
-                        <div class="icon">${icon}</div>
+                    <div class="hourly-item ${isDay ? 'is-day' : ''}">
+                        <div class="time ${i===startIndex ? 'now' : ''}">${label}</div>
+                        <div class="icon">${getWeatherIcon(hourly.weather_code[i], isDay)}</div>
                         <div class="temp">${temp}°</div>
+                        <div class="wind-info">
+                            <span class="wind-arrow" style="transform: rotate(${arrowRotation}deg);">➤</span>
+                            ${windSpeed}
+                        </div>
                     </div>
                 `;
             }
