@@ -128,7 +128,7 @@
 
         /* Main App */
         .location-header { padding: 10px 20px 15px 20px; display: flex; justify-content: space-between; align-items: flex-start; }
-        .location-header h1 { font-size: 36px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+        .location-header h1 { font-size: 36px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; }
         .location-header p { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin-top: 5px; }
         .fav-star { font-size: 28px; cursor: pointer; color: var(--text-muted); }
         .fav-star.active { color: #ffcc00; }
@@ -144,7 +144,7 @@
             flex: 0 0 auto;
             z-index: 1;
             font-family: "Inter Variable", var(--font-family);
-            font-size: 104px;
+            font-size: 93.6px;
             font-weight: 600;
             line-height: 0.78;
             letter-spacing: -0.055em;
@@ -172,7 +172,7 @@
             height: 140px; 
             object-fit: contain; 
             position: absolute; 
-            left: 50%; 
+            left: 55%; 
             transform: translateX(-50%); 
             z-index: 10; 
             top: 50%; 
@@ -626,7 +626,12 @@
         
         document.getElementById('menu-trigger').onclick = () => openPage('page-info');
         document.getElementById('footer-info-trigger').onclick = () => openPage('page-info');
-        document.getElementById('search-trigger').onclick = () => { openPage('page-orte'); document.getElementById('orte-search-input').focus(); };
+        function openPlaces() {
+            openPage('page-orte');
+            document.getElementById('orte-search-input').focus();
+        }
+        document.getElementById('search-trigger').onclick = openPlaces;
+        document.getElementById('city-name').onclick = openPlaces;
         
         document.getElementById('refresh-btn').onclick = () => {
             fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
