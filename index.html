@@ -128,8 +128,9 @@
 
         /* Main App */
         .location-header { padding: 10px 20px 15px 20px; display: flex; justify-content: space-between; align-items: flex-start; }
-        .location-header h1 { font-size: 36px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; }
-        .location-header p { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin-top: 5px; }
+        .location-header h1 { font-size: 36px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; line-height: 0.95; }
+        .location-header p { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin-top: 1px; }
+        .city-time { margin-top: 8px; font-size: 15px; font-weight: 600; letter-spacing: 0.5px; color: var(--text-main); font-variant-numeric: tabular-nums; }
         .fav-star { font-size: 28px; cursor: pointer; color: var(--text-muted); }
         .fav-star.active { color: #ffcc00; }
 
@@ -172,7 +173,7 @@
             height: 140px; 
             object-fit: contain; 
             position: absolute; 
-            left: 55%; 
+            left: 50%; 
             transform: translateX(-50%); 
             z-index: 10; 
             top: 50%; 
@@ -388,6 +389,7 @@
             <div>
                 <h1 id="city-name">LADE...</h1>
                 <p id="city-region">WETTER WIRD GELADEN</p>
+                <div class="city-time" id="city-time">--:--</div>
             </div>
             <div class="fav-star" id="fav-toggle">☆</div>
         </div>
@@ -673,6 +675,9 @@
         let currentCityName = "PRÜM";
         let currentRegionName = "RHEINLAND-PFALZ, DEUTSCHLAND";
         let map = null;
+        let cityTimeZone = null;
+        let cityUtcOffset = null;
+        let cityClockTimer = null;
         let searchTimeout = null;
         let favorites = JSON.parse(localStorage.getItem('panda_favs')) || [];
 
@@ -1021,6 +1026,34 @@
             return t('cloudy');
         }
 
+        function renderCityTime() {
+            const el = document.getElementById('city-time');
+            if (!el) return;
+            if (cityTimeZone) {
+                try {
+                    el.textContent = new Date().toLocaleTimeString(currentLang === 'zh' ? 'zh-CN' : currentLang, {
+                        timeZone: cityTimeZone,
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    return;
+                } catch (e) {}
+            }
+            if (cityUtcOffset == null) {
+                el.textContent = '--:--';
+                return;
+            }
+            const shifted = new Date(Date.now() + cityUtcOffset * 1000);
+            el.textContent = String(shifted.getUTCHours()).padStart(2, '0') + ':' + String(shifted.getUTCMinutes()).padStart(2, '0');
+        }
+
+        function setCityClock(timezone, utcOffsetSeconds) {
+            cityTimeZone = timezone || null;
+            cityUtcOffset = Number.isFinite(utcOffsetSeconds) ? utcOffsetSeconds : null;
+            renderCityTime();
+            if (!cityClockTimer) cityClockTimer = setInterval(renderCityTime, 1000);
+        }
+
         function formatTime(date) {
             return date.toLocaleTimeString(currentLang === 'zh' ? 'zh-CN' : currentLang, { hour: '2-digit', minute: '2-digit' });
         }
@@ -1045,6 +1078,7 @@
 
             document.getElementById('city-name').innerText = name;
             document.getElementById('city-region').innerText = region;
+            setCityClock(data.timezone, data.utc_offset_seconds);
             document.getElementById('orte-current-city').innerText = name;
             document.getElementById('orte-current-temp').innerHTML = `${Math.round(current.temperature_2m)}° <span>${formatTime(new Date(timestamp))}</span>`;
 
