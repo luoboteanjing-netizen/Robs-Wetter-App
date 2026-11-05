@@ -1184,16 +1184,24 @@
         let radarFrames = [];
         let radarIndex = 0;
         let radarTimer = null;
+        let radarKind = null;
 
         function inDwdCoverage() {
             return currentLat >= 45.6 && currentLat <= 56.3 && currentLon >= 1.4 && currentLon <= 18.8;
         }
 
-        function syncRadarView() {
+        function desiredRadarKind() {
+            return inDwdCoverage() ? 'dwd' : 'rainviewer';
+        }
+
+        async function syncRadarView() {
             if (!map) return;
             map.setView([currentLat, currentLon], map.getZoom() || 8);
             if (radarMarker) radarMarker.setLatLng([currentLat, currentLon]);
-            if (radarFrames.length) showRadarFrame(radarIndex);
+            if (desiredRadarKind() !== radarKind) {
+                stopRadar();
+                await reloadRadar();
+            }
         }
 
         function stopRadar() {
@@ -1203,6 +1211,28 @@
             }
             const btn = document.getElementById('radar-play');
             if (btn) btn.textContent = '▶';
+        }
+
+        async function loadRainViewerFrames() {
+            const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+            if (!res.ok) throw new Error('RainViewer ' + res.status);
+            const data = await res.json();
+            const host = data.host || 'https://tilecache.rainviewer.com';
+            const past = data.radar?.past || [];
+            const nowcast = data.radar?.nowcast || [];
+            const latestPast = past.length ? past[past.length - 1].time * 1000 : Date.now();
+            const frames = [...past, ...nowcast].map(item => ({
+                kind: 'rainviewer',
+                ms: item.time * 1000,
+                forecast: item.time * 1000 > latestPast + 60 * 1000,
+                url: `${host}${item.path}/256/{z}/{x}/{y}/2/1_1.png`
+            }));
+            if (!frames.length) throw new Error('RainViewer ohne Bilder');
+            radarFrames = frames;
+            renderRadarScale(latestPast);
+            let best = 0;
+            frames.forEach((frame, i) => { if (!frame.forecast) best = i; });
+            return best;
         }
 
         async function loadRadarFrames() {
@@ -1235,6 +1265,7 @@
                 if (t < startMs || t > endMs) continue;
                 const forecast = t > runMs + 2 * 60 * 1000;
                 frames.push({
+                    kind: 'dwd',
                     ms: t,
                     time: new Date(t).toISOString(),
                     ref: new Date(forecast ? runMs : t).toISOString(),
@@ -1242,7 +1273,7 @@
                 });
             }
             if (!frames.length) {
-                frames.push({ ms: runMs, time: new Date(runMs).toISOString(), ref: new Date(runMs).toISOString(), forecast: false });
+                frames.push({ kind: 'dwd', ms: runMs, time: new Date(runMs).toISOString(), ref: new Date(runMs).toISOString(), forecast: false });
             }
             radarFrames = frames;
             renderRadarScale(runMs);
@@ -1260,7 +1291,9 @@
             if (!radarFrames.length) return;
             radarIndex = (index + radarFrames.length) % radarFrames.length;
             const frame = radarFrames[radarIndex];
-            if (radarLayer) {
+            if (radarKind === 'rainviewer' && radarLayer && frame.url) {
+                radarLayer.setUrl(frame.url);
+            } else if (radarKind === 'dwd' && radarLayer) {
                 radarLayer.setParams({ time: frame.time, REFERENCE_TIME: frame.ref });
             }
             const clock = new Date(frame.ms);
@@ -1269,8 +1302,8 @@
             const nearNow = !frame.forecast && Math.abs(frame.ms - Date.now()) < 12 * 60 * 1000;
             document.getElementById('radar-time').textContent = nearNow ? t('now') : hh + ':' + mm;
             const label = document.getElementById('radar-label');
-            if (!inDwdCoverage()) {
-                label.textContent = currentLang === 'en' ? 'DWD COVERS GERMANY' : currentLang === 'zh' ? '仅覆盖德国' : 'NUR DEUTSCHLAND';
+            if (radarKind === 'rainviewer' && !frame.forecast) {
+                label.textContent = currentLang === 'zh' ? '雷达' : 'RADAR';
             } else if (frame.forecast) {
                 label.textContent = currentLang === 'en' ? 'FORECAST' : currentLang === 'zh' ? '预报' : 'VORHERSAGE';
             } else {
@@ -1318,6 +1351,50 @@
             showRadarFrame(Math.round(ratio * (radarFrames.length - 1)));
         };
 
+        function ensureRadarLayer(kind, frame) {
+            if (radarLayer && radarKind === kind) return;
+            if (radarLayer) {
+                map.removeLayer(radarLayer);
+                radarLayer = null;
+            }
+            radarKind = kind;
+            if (kind === 'dwd') {
+                radarLayer = L.tileLayer.wms('https://maps.dwd.de/geoserver/dwd/wms', {
+                    layers: 'Niederschlagsradar',
+                    format: 'image/png',
+                    transparent: true,
+                    version: '1.1.1',
+                    opacity: 0.85,
+                    time: frame.time,
+                    REFERENCE_TIME: frame.ref,
+                    attribution: '&copy; Deutscher Wetterdienst'
+                }).addTo(map);
+            } else {
+                radarLayer = L.tileLayer(frame.url, {
+                    opacity: 0.8,
+                    maxZoom: 18,
+                    maxNativeZoom: 7,
+                    attribution: '&copy; RainViewer'
+                }).addTo(map);
+            }
+            if (radarMarker) radarMarker.bringToFront();
+        }
+
+        async function reloadRadar() {
+            document.getElementById('radar-time').textContent = t('loading');
+            const kind = desiredRadarKind();
+            let index = 0;
+            try {
+                index = kind === 'dwd' ? await loadRadarFrames() : await loadRainViewerFrames();
+            } catch (err) {
+                console.error('Radar nicht geladen', err);
+                document.getElementById('radar-label').textContent = currentLang === 'en' ? 'RADAR UNAVAILABLE' : 'RADAR NICHT VERFÜGBAR';
+                return;
+            }
+            ensureRadarLayer(kind, radarFrames[index]);
+            showRadarFrame(index);
+        }
+
         async function initMap() {
             map = L.map('map', { zoomControl: false, attributionControl: true }).setView([currentLat, currentLon], 8);
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1326,24 +1403,10 @@
                 className: 'map-tiles-dark'
             }).addTo(map);
 
-            document.getElementById('radar-time').textContent = t('loading');
-            const index = await loadRadarFrames();
-            const frame = radarFrames[index];
-            radarLayer = L.tileLayer.wms('https://maps.dwd.de/geoserver/dwd/wms', {
-                layers: 'Niederschlagsradar',
-                format: 'image/png',
-                transparent: true,
-                version: '1.1.1',
-                opacity: 0.85,
-                time: frame.time,
-                REFERENCE_TIME: frame.ref,
-                attribution: '&copy; Deutscher Wetterdienst'
-            }).addTo(map);
-
             radarMarker = L.circleMarker([currentLat, currentLon], {
                 radius: 8, fillColor: "#e63946", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9
             }).addTo(map);
-            showRadarFrame(index);
+            await reloadRadar();
             setTimeout(() => map && map.invalidateSize(), 200);
         }
     </script>
