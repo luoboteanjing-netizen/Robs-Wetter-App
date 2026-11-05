@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json?v=1.1">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -82,7 +82,7 @@
         .back-btn { font-size: 24px; font-weight: bold; cursor: pointer; padding-right: 15px; }
         .sub-title { font-size: 24px; font-weight: 800; letter-spacing: 1px; flex-grow: 1; }
 
-        .sub-content { padding: 0 20px; }
+        .sub-content { padding: 0 20px; flex: 1; }
 
         .info-box {
             background: var(--card-bg); border: 1px solid var(--border-color);
@@ -299,6 +299,7 @@
             max-width: 72%;
         }
         .leaflet-control-attribution a { color: #d0d0d0 !important; }
+        .leaflet-rainviewer-cache { pointer-events: none; opacity: 0.82; }
         .radar-controls { display: flex; align-items: center; gap: 15px; margin-top: 15px; }
         .play-btn { width: 40px; height: 40px; border-radius: 50%; background-color: var(--accent-red); display: flex; justify-content: center; align-items: center; color: white; font-size: 16px; cursor: pointer; user-select: none; }
         .time-display { font-size: 24px; font-weight: 700; }
@@ -353,6 +354,14 @@
 
         .footer { text-align: center; padding: 30px 20px; font-size: 12px; color: var(--text-muted); letter-spacing: 1px; }
         .footer a { color: var(--text-muted); text-decoration: none; }
+        .app-version {
+            margin-top: auto;
+            padding: 28px 20px 32px;
+            text-align: center;
+            font-size: 12px;
+            letter-spacing: 0.4px;
+            color: var(--text-muted);
+        }
         
         .search-results-dropdown { margin-top: 10px; }
         .search-item { padding: 15px; background: var(--bar-bg); border-radius: 12px; margin-bottom: 10px; cursor: pointer; }
@@ -558,6 +567,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.1</span></div>
     </div>
 
     <script>
@@ -569,6 +579,7 @@
                 current_location: "AKTUELLER STANDORT", favorites: "FAVORITEN",
                 language: "SPRACHE", display: "DARSTELLUNG", auto: "AUTO", light: "HELL", dark: "DUNKEL",
                 sources: "QUELLEN", privacy: "DATENSCHUTZ", privacy_text: "Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.",
+                version: "Version",
                 feels_like: "GEFÜHLT", wind: "WIND", now: "JETZT", tap_for_details: "TIPPEN FÜR VERLAUF",
                 tab_48h: "48 STD", tab_3d: "3 TAGE", tab_7d: "7 TAGE", tab_16d: "16 TAGE", tab_radar: "RADAR",
                 hourly: "STUNDENVERLAUF", until_16: "BIS 16 TAGE", unsure: "UNSICHER", radar_dwd: "RADAR (DWD)",
@@ -588,6 +599,7 @@
                 current_location: "CURRENT LOCATION", favorites: "FAVORITES",
                 language: "LANGUAGE", display: "APPEARANCE", auto: "AUTO", light: "LIGHT", dark: "DARK",
                 sources: "SOURCES", privacy: "PRIVACY", privacy_text: "No tracking, no analytics, no ads, no accounts. The app only requests weather services with coordinates. Favorites, location and forecasts remain on this device.",
+                version: "Version",
                 feels_like: "FEELS LIKE", wind: "WIND", now: "NOW", tap_for_details: "TAP FOR DETAILS",
                 tab_48h: "48 HRS", tab_3d: "3 DAYS", tab_7d: "7 DAYS", tab_16d: "16 DAYS", tab_radar: "RADAR",
                 hourly: "HOURLY FORECAST", until_16: "UP TO 16 DAYS", unsure: "UNCERTAIN", radar_dwd: "RADAR (DWD)",
@@ -607,6 +619,7 @@
                 current_location: "当前位置", favorites: "收藏夹",
                 language: "语言", display: "显示", auto: "自动", light: "浅色", dark: "深色",
                 sources: "数据来源", privacy: "隐私", privacy_text: "无追踪，无分析，无广告，无账户。应用仅使用坐标请求天气服务。收藏、位置和预报保留在本设备上。",
+                version: "版本",
                 feels_like: "体感温度", wind: "风速", now: "现在", tap_for_details: "点击查看详情",
                 tab_48h: "48小时", tab_3d: "3天", tab_7d: "7天", tab_16d: "16天", tab_radar: "雷达",
                 hourly: "每小时预报", until_16: "16天预报", unsure: "不确定", radar_dwd: "雷达 (DWD)",
@@ -622,6 +635,7 @@
             }
         };
 
+        const APP_VERSION = '1.1';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -666,6 +680,8 @@
             const savedTheme = localStorage.getItem('panda_theme') || 'dark';
             setTheme(savedTheme, false);
             setLang(currentLang);
+            const versionEl = document.getElementById('app-version');
+            if (versionEl) versionEl.textContent = APP_VERSION;
             
             if(navigator.onLine) {
                 fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
@@ -1241,6 +1257,8 @@
         let radarIndex = 0;
         let radarTimer = null;
         let radarKind = null;
+        const radarTileCache = new Map();
+        let radarPlayWanted = false;
 
         function inDwdCoverage() {
             return currentLat >= 45.6 && currentLat <= 56.3 && currentLon >= 1.4 && currentLon <= 18.8;
@@ -1261,6 +1279,7 @@
         }
 
         function stopRadar() {
+            radarPlayWanted = false;
             if (radarTimer) {
                 clearInterval(radarTimer);
                 radarTimer = null;
@@ -1269,7 +1288,105 @@
             if (btn) btn.textContent = '▶';
         }
 
+        function rainviewerTiles() {
+            if (!map) return [];
+            const zoom = Math.min(map.getZoom(), 7);
+            const bounds = map.getBounds().pad(0.15);
+            const nw = map.project(bounds.getNorthWest(), zoom).divideBy(256).floor();
+            const se = map.project(bounds.getSouthEast(), zoom).divideBy(256).floor();
+            const tiles = [];
+            for (let x = nw.x; x <= se.x; x++) {
+                for (let y = nw.y; y <= se.y; y++) tiles.push({ z: zoom, x, y });
+            }
+            return tiles;
+        }
+
+        function rainviewerTileUrl(template, tile) {
+            return template.replace('{z}', tile.z).replace('{x}', tile.x).replace('{y}', tile.y);
+        }
+
+        function loadCachedTile(url) {
+            if (radarTileCache.has(url)) return radarTileCache.get(url);
+            const pending = new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    radarTileCache.set(url, img);
+                    if (radarLayer && radarLayer.redraw) radarLayer.redraw();
+                    resolve(img);
+                };
+                img.onerror = () => {
+                    radarTileCache.set(url, null);
+                    resolve(null);
+                };
+                img.src = url;
+            });
+            radarTileCache.set(url, pending);
+            return pending;
+        }
+
+        function prefetchRainViewerView() {
+            if (radarKind !== 'rainviewer' || !radarFrames.length) return Promise.resolve();
+            const tiles = rainviewerTiles();
+            const jobs = [];
+            radarFrames.forEach(frame => {
+                if (!frame.url) return;
+                tiles.forEach(tile => jobs.push(loadCachedTile(rainviewerTileUrl(frame.url, tile))));
+            });
+            return Promise.all(jobs).then(() => {
+                if (radarLayer && radarLayer.redraw) radarLayer.redraw();
+            });
+        }
+
+        const RainViewerCacheLayer = L.Layer.extend({
+            onAdd(map) {
+                this._canvas = L.DomUtil.create('canvas', 'leaflet-rainviewer-cache');
+                this._ctx = this._canvas.getContext('2d');
+                map.getPane('overlayPane').appendChild(this._canvas);
+                map.on('move zoom resize viewreset', this._reset, this);
+                if (map.attributionControl) map.attributionControl.addAttribution('&copy; RainViewer');
+                this._reset();
+            },
+            onRemove(map) {
+                L.DomUtil.remove(this._canvas);
+                map.off('move zoom resize viewreset', this._reset, this);
+                if (map.attributionControl) map.attributionControl.removeAttribution('&copy; RainViewer');
+            },
+            _reset() {
+                if (!this._map) return;
+                const size = this._map.getSize();
+                L.DomUtil.setPosition(this._canvas, this._map.containerPointToLayerPoint([0, 0]));
+                const dpr = window.devicePixelRatio || 1;
+                this._canvas.width = Math.max(1, size.x * dpr);
+                this._canvas.height = Math.max(1, size.y * dpr);
+                this._canvas.style.width = size.x + 'px';
+                this._canvas.style.height = size.y + 'px';
+                this._ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                this.redraw();
+            },
+            redraw() {
+                if (!this._map || radarKind !== 'rainviewer') return;
+                const frame = radarFrames[radarIndex];
+                const size = this._map.getSize();
+                this._ctx.clearRect(0, 0, size.x, size.y);
+                if (!frame || !frame.url) return;
+                const zoom = Math.min(this._map.getZoom(), 7);
+                const bounds = this._map.getBounds().pad(0.15);
+                const nw = this._map.project(bounds.getNorthWest(), zoom).divideBy(256).floor();
+                const se = this._map.project(bounds.getSouthEast(), zoom).divideBy(256).floor();
+                for (let x = nw.x; x <= se.x; x++) {
+                    for (let y = nw.y; y <= se.y; y++) {
+                        const cached = radarTileCache.get(rainviewerTileUrl(frame.url, { z: zoom, x, y }));
+                        if (!cached || typeof cached.then === 'function') continue;
+                        const origin = this._map.latLngToContainerPoint(this._map.unproject(L.point(x * 256, y * 256), zoom));
+                        const next = this._map.latLngToContainerPoint(this._map.unproject(L.point((x + 1) * 256, (y + 1) * 256), zoom));
+                        this._ctx.drawImage(cached, origin.x, origin.y, next.x - origin.x, next.y - origin.y);
+                    }
+                }
+            }
+        });
+
         async function loadRainViewerFrames() {
+            radarTileCache.clear();
             const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
             if (!res.ok) throw new Error('RainViewer ' + res.status);
             const data = await res.json();
@@ -1347,8 +1464,8 @@
             if (!radarFrames.length) return;
             radarIndex = (index + radarFrames.length) % radarFrames.length;
             const frame = radarFrames[radarIndex];
-            if (radarKind === 'rainviewer' && radarLayer && frame.url) {
-                radarLayer.setUrl(frame.url);
+            if (radarKind === 'rainviewer' && radarLayer && radarLayer.redraw) {
+                radarLayer.redraw();
             } else if (radarKind === 'dwd' && radarLayer) {
                 radarLayer.setParams({ time: frame.time, REFERENCE_TIME: frame.ref });
             }
@@ -1388,13 +1505,21 @@
             scale.innerHTML = html;
         }
 
-        function toggleRadar() {
-            if (radarTimer) {
+        async function toggleRadar() {
+            if (radarTimer || radarPlayWanted) {
                 stopRadar();
                 return;
             }
             if (!radarFrames.length) return;
-            document.getElementById('radar-play').textContent = '❚❚';
+            const btn = document.getElementById('radar-play');
+            if (radarKind === 'rainviewer') {
+                radarPlayWanted = true;
+                btn.textContent = '…';
+                await prefetchRainViewerView();
+                if (!radarPlayWanted) return;
+                radarPlayWanted = false;
+            }
+            btn.textContent = '❚❚';
             radarTimer = setInterval(() => showRadarFrame(radarIndex + 1), 800);
         }
 
@@ -1472,12 +1597,8 @@
                     attribution: '&copy; Deutscher Wetterdienst'
                 }).addTo(map);
             } else {
-                radarLayer = L.tileLayer(frame.url, {
-                    opacity: 0.8,
-                    maxZoom: 18,
-                    maxNativeZoom: 7,
-                    attribution: '&copy; RainViewer'
-                }).addTo(map);
+                radarLayer = new RainViewerCacheLayer().addTo(map);
+                prefetchRainViewerView();
             }
             if (radarMarker) radarMarker.bringToFront();
         }
@@ -1509,6 +1630,9 @@
                 radius: 8, fillColor: "#e63946", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9
             }).addTo(map);
             map.on('click', openRadarFullscreen);
+            map.on('moveend', () => {
+                if (radarKind === 'rainviewer') prefetchRainViewerView();
+            });
             await reloadRadar();
             setTimeout(() => map && map.invalidateSize(), 200);
         }
