@@ -289,14 +289,29 @@
         .day-rain-16 .pct { color: var(--accent-blue); font-size: 14px; font-weight: 600; }
         .day-rain-16 .lbl { font-size: 12px; color: var(--text-muted); display: block; }
 
-        #map { height: 300px; border-radius: 16px; margin-bottom: 15px; z-index: 1; background: #222; }
+        #map { height: 300px; border-radius: 16px; margin-bottom: 15px; z-index: 1; background: #222; overflow: hidden; }
+        .map-tiles-dark { filter: invert(100%) hue-rotate(180deg) brightness(0.92) contrast(0.9); }
+        .leaflet-control-attribution {
+            font-size: 9px !important;
+            line-height: 1.2;
+            background: rgba(18, 18, 18, 0.75) !important;
+            color: #9a9a9a !important;
+            max-width: 72%;
+        }
+        .leaflet-control-attribution a { color: #d0d0d0 !important; }
         .radar-controls { display: flex; align-items: center; gap: 15px; margin-top: 15px; }
         .play-btn { width: 40px; height: 40px; border-radius: 50%; background-color: var(--accent-red); display: flex; justify-content: center; align-items: center; color: white; font-size: 16px; cursor: pointer; user-select: none; }
         .time-display { font-size: 24px; font-weight: 700; }
         .time-lbl { font-size: 10px; color: var(--text-muted); display: block; letter-spacing: 1px; }
         .timeline { width: 100%; height: 16px; background-color: var(--border-color); border-radius: 3px; margin-top: 15px; position: relative; cursor: pointer; }
         .timeline::before { content: ''; position: absolute; left: 0; right: 0; top: 5px; height: 6px; background: var(--border-color); border-radius: 3px; }
-        .timeline-thumb { width: 16px; height: 16px; background-color: white; border-radius: 50%; position: absolute; top: 0; left: 0; transform: translateX(-50%); box-shadow: 0 0 5px rgba(0,0,0,0.5); pointer-events: none; }
+        .timeline-thumb { width: 16px; height: 16px; background-color: white; border-radius: 50%; position: absolute; top: 0; left: 0; transform: translateX(-50%); box-shadow: 0 0 5px rgba(0,0,0,0.5); pointer-events: none; z-index: 2; }
+        .radar-scale { position: relative; height: 16px; margin-top: 4px; }
+        .radar-scale span {
+            position: absolute; top: 0; transform: translateX(-50%);
+            font-size: 9px; color: var(--text-muted); white-space: nowrap; letter-spacing: 0;
+        }
+        .radar-scale span.is-now { color: var(--text-main); font-weight: 700; }
 
         .footer { text-align: center; padding: 30px 20px; font-size: 12px; color: var(--text-muted); letter-spacing: 1px; }
         .footer a { color: var(--text-muted); text-decoration: none; }
@@ -419,9 +434,7 @@
                 </div>
             </div>
             <div class="timeline" id="radar-timeline"><div class="timeline-thumb" id="radar-thumb"></div></div>
-            <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-top: 10px;">
-                <span>-6 STD</span><span data-i18n="now">JETZT</span><span>+2 STD</span>
-            </div>
+            <div class="radar-scale" id="radar-scale"></div>
         </div>
 
         <div class="footer">
@@ -1232,6 +1245,7 @@
                 frames.push({ ms: runMs, time: new Date(runMs).toISOString(), ref: new Date(runMs).toISOString(), forecast: false });
             }
             radarFrames = frames;
+            renderRadarScale(runMs);
 
             let best = 0;
             let bestDiff = Infinity;
@@ -1266,6 +1280,25 @@
             document.getElementById('radar-thumb').style.left = (ratio * 100) + '%';
         }
 
+        function renderRadarScale(runMs) {
+            const scale = document.getElementById('radar-scale');
+            if (!scale || !radarFrames.length) return;
+            const first = radarFrames[0].ms;
+            const last = radarFrames[radarFrames.length - 1].ms;
+            const span = Math.max(1, last - first);
+            const startHour = Math.ceil(first / 3600000) * 3600000;
+            let html = '';
+            for (let t = startHour; t <= last + 1000; t += 3600000) {
+                if (t < first - 60000 || t > last + 60000) continue;
+                const ratio = Math.min(1, Math.max(0, (t - first) / span));
+                const hour = String(new Date(t).getHours()).padStart(2, '0');
+                const isNow = Math.abs(t - runMs) < 30 * 60 * 1000;
+                const edge = ratio < 0.06 ? 'translateX(0)' : ratio > 0.94 ? 'translateX(-100%)' : 'translateX(-50%)';
+                html += `<span class="${isNow ? 'is-now' : ''}" style="left:${(ratio * 100).toFixed(2)}%;transform:${edge}">${hour}:00</span>`;
+            }
+            scale.innerHTML = html;
+        }
+
         function toggleRadar() {
             if (radarTimer) {
                 stopRadar();
@@ -1287,10 +1320,10 @@
 
         async function initMap() {
             map = L.map('map', { zoomControl: false, attributionControl: true }).setView([currentLat, currentLon], 8);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap &copy; CARTO',
-                subdomains: 'abcd',
-                maxZoom: 19
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap',
+                maxZoom: 19,
+                className: 'map-tiles-dark'
             }).addTo(map);
 
             document.getElementById('radar-time').textContent = t('loading');
