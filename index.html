@@ -290,7 +290,7 @@
         .day-rain-16 .lbl { font-size: 12px; color: var(--text-muted); display: block; }
 
         #map { height: 300px; border-radius: 16px; margin-bottom: 15px; z-index: 1; background: #222; overflow: hidden; }
-        .map-tiles-dark { filter: invert(100%) hue-rotate(180deg) brightness(0.92) contrast(0.9); }
+        .map-tiles-dark { filter: invert(100%) hue-rotate(180deg) brightness(1.7) contrast(0.86) saturate(0.85); }
         .leaflet-control-attribution {
             font-size: 9px !important;
             line-height: 1.2;
@@ -312,6 +312,44 @@
             font-size: 9px; color: var(--text-muted); white-space: nowrap; letter-spacing: 0;
         }
         .radar-scale span.is-now { color: var(--text-main); font-weight: 700; }
+
+        body.radar-fs-open { overflow: hidden; }
+        .radar-fs {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 400;
+            background: var(--bg-color);
+            flex-direction: column;
+        }
+        .radar-fs.open { display: flex; }
+        .radar-fs-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px 8px;
+        }
+        .radar-fs-close {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: var(--card-bg);
+            color: var(--text-main);
+            font-size: 28px;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .radar-fs-copy { flex: 1; min-width: 0; }
+        .radar-fs-copy strong { display: block; font-size: 18px; letter-spacing: 0.5px; }
+        .radar-fs-copy span { display: block; font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .radar-fs-side { display: flex; align-items: center; gap: 8px; }
+        .radar-fs-icon { width: 42px; height: 42px; }
+        .radar-fs-icon svg, .radar-fs-icon .wx-icon { width: 100%; height: 100%; display: block; }
+        .radar-fs-temp { font-size: 34px; font-weight: 600; letter-spacing: -0.04em; line-height: 1; }
+        .radar-fs-stage { flex: 1; min-height: 0; }
+        .radar-fs-stage #map { height: 100%; width: 100%; margin: 0; border-radius: 0; }
+        .radar-fs-dock { padding: 8px 16px 18px; }
 
         .footer { text-align: center; padding: 30px 20px; font-size: 12px; color: var(--text-muted); letter-spacing: 1px; }
         .footer a { color: var(--text-muted); text-decoration: none; }
@@ -435,6 +473,23 @@
             </div>
             <div class="timeline" id="radar-timeline"><div class="timeline-thumb" id="radar-thumb"></div></div>
             <div class="radar-scale" id="radar-scale"></div>
+        </div>
+
+        <div class="radar-fs" id="radar-fs">
+            <div class="radar-fs-bar">
+                <button type="button" class="radar-fs-close" id="radar-fs-close" aria-label="Schließen">‹</button>
+                <div class="radar-fs-copy">
+                    <strong id="radar-fs-city">ORT</strong>
+                    <span id="radar-fs-condition">-</span>
+                    <span id="radar-fs-meta">-</span>
+                </div>
+                <div class="radar-fs-side">
+                    <div class="radar-fs-icon" id="radar-fs-icon"></div>
+                    <div class="radar-fs-temp" id="radar-fs-temp">-°</div>
+                </div>
+            </div>
+            <div class="radar-fs-stage" id="radar-fs-stage"></div>
+            <div class="radar-fs-dock" id="radar-fs-dock"></div>
         </div>
 
         <div class="footer">
@@ -1174,6 +1229,7 @@
                         syncRadarView();
                     }
                 } else {
+                    closeRadarFullscreen();
                     stopRadar();
                 }
             });
@@ -1342,6 +1398,52 @@
             radarTimer = setInterval(() => showRadarFrame(radarIndex + 1), 800);
         }
 
+        let radarFsZoom = 8;
+
+        function fillRadarFullscreen() {
+            document.getElementById('radar-fs-city').textContent = document.getElementById('city-name').textContent;
+            document.getElementById('radar-fs-condition').textContent = document.getElementById('current-condition').textContent;
+            document.getElementById('radar-fs-temp').textContent = document.getElementById('current-temp').textContent + '°';
+            document.getElementById('radar-fs-icon').innerHTML = document.getElementById('current-icon').innerHTML;
+            const meta = document.querySelector('.sub-details');
+            document.getElementById('radar-fs-meta').textContent = meta ? meta.innerText.replace(/\s+/g, ' ').trim() : '';
+        }
+
+        function openRadarFullscreen() {
+            if (!map || document.body.classList.contains('radar-fs-open')) return;
+            radarFsZoom = map.getZoom();
+            fillRadarFullscreen();
+            document.getElementById('radar-fs-stage').appendChild(document.getElementById('map'));
+            const dock = document.getElementById('radar-fs-dock');
+            dock.appendChild(document.querySelector('.radar-controls'));
+            dock.appendChild(document.getElementById('radar-timeline'));
+            dock.appendChild(document.getElementById('radar-scale'));
+            document.getElementById('radar-fs').classList.add('open');
+            document.body.classList.add('radar-fs-open');
+            setTimeout(() => {
+                if (!map) return;
+                map.invalidateSize();
+                map.setView([currentLat, currentLon], Math.max(4, radarFsZoom - 3));
+            }, 60);
+        }
+
+        function closeRadarFullscreen() {
+            if (!document.body.classList.contains('radar-fs-open')) return;
+            const card = document.getElementById('tab-radar');
+            card.insertBefore(document.getElementById('map'), card.firstChild);
+            card.appendChild(document.querySelector('.radar-controls'));
+            card.appendChild(document.getElementById('radar-timeline'));
+            card.appendChild(document.getElementById('radar-scale'));
+            document.getElementById('radar-fs').classList.remove('open');
+            document.body.classList.remove('radar-fs-open');
+            setTimeout(() => {
+                if (!map) return;
+                map.invalidateSize();
+                map.setView([currentLat, currentLon], radarFsZoom || 8);
+            }, 60);
+        }
+
+        document.getElementById('radar-fs-close').onclick = closeRadarFullscreen;
         document.getElementById('radar-play').onclick = toggleRadar;
         document.getElementById('radar-timeline').onclick = (event) => {
             if (!radarFrames.length) return;
@@ -1406,6 +1508,7 @@
             radarMarker = L.circleMarker([currentLat, currentLon], {
                 radius: 8, fillColor: "#e63946", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9
             }).addTo(map);
+            map.on('click', openRadarFullscreen);
             await reloadRadar();
             setTimeout(() => map && map.invalidateSize(), 200);
         }
