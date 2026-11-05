@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=1.2">
+    <link rel="manifest" href="manifest.json?v=1.3">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -265,6 +265,24 @@
         .day-name strong { display: block; font-size: 16px; }
         .day-name span { font-size: 12px; color: var(--text-muted); }
         
+        .day-card {
+            flex: 1; background: var(--bar-bg); border-radius: 16px; padding: 15px 8px;
+            text-align: center; border: 1.5px solid transparent; cursor: pointer;
+        }
+        .day-card.selected { border-color: var(--text-main); }
+        .day-detail {
+            margin-top: 14px; background: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 20px; padding: 16px 12px 14px;
+        }
+        .day-detail[hidden] { display: none !important; }
+        .day-detail-title { color: var(--accent-red); font-weight: 800; letter-spacing: 0.4px; margin-bottom: 14px; text-transform: uppercase; }
+        .day-parts { display: flex; gap: 4px; }
+        .day-part { flex: 1; text-align: center; min-width: 0; }
+        .day-part-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.4px; margin-bottom: 8px; text-transform: uppercase; }
+        .day-part .day-icon { width: 40px; height: 40px; flex-basis: 40px; margin: 0 auto 6px; }
+        .day-part-temp { font-size: 16px; font-weight: 700; }
+        .day-part-rain { font-size: 12px; color: var(--accent-blue); font-weight: 600; min-height: 16px; margin-top: 2px; }
+        .day-detail-foot { margin-top: 14px; font-size: 12px; color: var(--text-muted); letter-spacing: 0.3px; text-transform: uppercase; text-align: center; }
         .day-icon { width: 44px; height: 44px; text-align: center; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; }
         .day-icon img, .day-icon svg, .day-icon .wx-icon { width: 100%; height: 100%; object-fit: contain; display: block; }
         
@@ -445,6 +463,7 @@
         <div class="card" id="tab-3d">
             <div class="graph-header"><span data-i18n="tab_3d">3 TAGE</span></div>
             <div id="three-day-container" style="display:flex; gap:10px;"></div>
+            <div id="three-day-detail" class="day-detail" hidden></div>
         </div>
 
         <div class="card" id="tab-7d">
@@ -569,7 +588,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.2</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.3</span></div>
     </div>
 
     <script>
@@ -587,6 +606,7 @@
                 hourly: "STUNDENVERLAUF", until_16: "BIS 16 TAGE", unsure: "UNSICHER", radar_dwd: "RADAR (DWD)",
                 weather_data_by: "Wetterdaten von",
                 today: "Heute", tomorrow: "Morgen", day: "Tag", rain: "Regen",
+                part_night: "Nacht", part_morning: "Morgen", part_midday: "Mittag", part_evening: "Abend", sun_hours: "Sonne",
                 no_favs: "Noch keine Favoriten. Suche oben nach einer Stadt und tippe auf den Stern.",
                 loading: "LADE DATEN...", offline: "OFFLINE (CACHE)", stand: "Letztes Update:",
                 clear: "Klar", partly_cloudy: "Teilweise bewölkt", cloudy: "Bedeckt", fog: "Nebel",
@@ -607,6 +627,7 @@
                 hourly: "HOURLY FORECAST", until_16: "UP TO 16 DAYS", unsure: "UNCERTAIN", radar_dwd: "RADAR (DWD)",
                 weather_data_by: "Weather data by",
                 today: "Today", tomorrow: "Tomorrow", day: "Day", rain: "Rain",
+                part_night: "Night", part_morning: "Morning", part_midday: "Midday", part_evening: "Evening", sun_hours: "Sun",
                 no_favs: "No favorites yet. Search for a city above and tap the star.",
                 loading: "LOADING...", offline: "OFFLINE (CACHE)", stand: "Last update:",
                 clear: "Clear", partly_cloudy: "Partly cloudy", cloudy: "Overcast", fog: "Fog",
@@ -627,6 +648,7 @@
                 hourly: "每小时预报", until_16: "16天预报", unsure: "不确定", radar_dwd: "雷达 (DWD)",
                 weather_data_by: "天气数据由",
                 today: "今天", tomorrow: "明天", day: "天", rain: "雨",
+                part_night: "夜间", part_morning: "早晨", part_midday: "中午", part_evening: "傍晚", sun_hours: "日出",
                 no_favs: "暂无收藏。在上方搜索城市并点击星号。",
                 loading: "加载中...", offline: "离线 (缓存)", stand: "最近更新:",
                 clear: "晴", partly_cloudy: "多云", cloudy: "阴", fog: "雾",
@@ -637,7 +659,7 @@
             }
         };
 
-        const APP_VERSION = '1.2';
+        const APP_VERSION = '1.3';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -680,6 +702,8 @@
         let cityClockTimer = null;
         let searchTimeout = null;
         let favorites = JSON.parse(localStorage.getItem('panda_favs')) || [];
+        let selectedDayIndex = null;
+        let lastWeatherData = null;
 
         window.onload = () => {
             const savedTheme = localStorage.getItem('panda_theme') || 'dark';
@@ -872,7 +896,7 @@
         // --- 6. WETTER DATEN ---
         async function fetchWeather(lat, lon, name, region) {
             setStatus(t('loading'), true);
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,weather_code,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=16`;
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=16`;
             
             try {
                 const response = await fetch(url);
@@ -1054,6 +1078,99 @@
             if (!cityClockTimer) cityClockTimer = setInterval(renderCityTime, 1000);
         }
 
+        function clockFromIso(iso) {
+            if (!iso) return '--:--';
+            return String(iso).slice(11, 16);
+        }
+
+        function formatMm(value) {
+            if (value >= 10) return Math.round(value) + ' mm';
+            const text = value.toFixed(1);
+            return (currentLang === 'de' ? text.replace('.', ',') : text) + ' mm';
+        }
+
+        function periodSummary(hourly, dateStr, startHour, endHour) {
+            const temps = [];
+            const codes = [];
+            let precip = 0;
+            for (let i = 0; i < hourly.time.length; i++) {
+                if (!hourly.time[i].startsWith(dateStr)) continue;
+                const hour = Number(hourly.time[i].slice(11, 13));
+                if (hour < startHour || hour >= endHour) continue;
+                temps.push(hourly.temperature_2m[i]);
+                codes.push(Number(hourly.weather_code[i]));
+                precip += Number(hourly.precipitation?.[i] || 0);
+            }
+            if (!temps.length) return null;
+            const precipCodes = codes.filter(isPrecipCode);
+            const code = (precipCodes.length / codes.length >= 0.25) ? modeValue(precipCodes) : modeValue(codes);
+            return {
+                min: Math.round(Math.min(...temps)),
+                max: Math.round(Math.max(...temps)),
+                code,
+                precip
+            };
+        }
+
+        function renderThreeDayDetail(index) {
+            const box = document.getElementById('three-day-detail');
+            const data = lastWeatherData;
+            if (!box || !data || !data.daily.time[index]) {
+                if (box) box.hidden = true;
+                return;
+            }
+            const daily = data.daily;
+            const hourly = data.hourly;
+            const dateStr = daily.time[index];
+            const date = new Date(dateStr + 'T12:00:00');
+            const parts = [
+                { key: 'part_night', start: 0, end: 6, day: 0 },
+                { key: 'part_morning', start: 6, end: 12, day: 1 },
+                { key: 'part_midday', start: 12, end: 18, day: 1 },
+                { key: 'part_evening', start: 18, end: 24, day: 0 }
+            ];
+            const columns = parts.map(part => {
+                const summary = periodSummary(hourly, dateStr, part.start, part.end);
+                if (!summary) {
+                    return `<div class="day-part"><div class="day-part-label">${t(part.key)}</div><div class="day-part-temp">-</div></div>`;
+                }
+                const range = summary.min === summary.max ? `${summary.min}°` : `${summary.min}-${summary.max}°`;
+                const rain = summary.precip >= 0.1 ? formatMm(summary.precip) : '';
+                return `
+                    <div class="day-part">
+                        <div class="day-part-label">${t(part.key)}</div>
+                        <div class="day-icon">${getWeatherIconHtml(summary.code, part.day)}</div>
+                        <div class="day-part-temp">${range}</div>
+                        <div class="day-part-rain">${rain}</div>
+                    </div>
+                `;
+            }).join('');
+            const rain = daily.precipitation_probability_max?.[index];
+            box.innerHTML = `
+                <div class="day-detail-title">${t('days')[date.getDay()]} ${getFormattedDate(date, 'day')}</div>
+                <div class="day-parts">${columns}</div>
+                <div class="day-detail-foot">${t('sun_hours')} ${clockFromIso(daily.sunrise?.[index])}-${clockFromIso(daily.sunset?.[index])} · ${t('rain')} ${rain ?? '-'} %</div>
+            `;
+            box.hidden = false;
+        }
+
+        document.getElementById('three-day-container').onclick = (event) => {
+            const card = event.target.closest('.day-card');
+            if (!card) return;
+            const index = Number(card.dataset.index);
+            if (selectedDayIndex === index) {
+                selectedDayIndex = null;
+                card.classList.remove('selected');
+                document.getElementById('three-day-detail').hidden = true;
+                return;
+            }
+            selectedDayIndex = index;
+            document.querySelectorAll('.day-card').forEach(item => {
+                item.classList.toggle('selected', Number(item.dataset.index) === index);
+            });
+            renderThreeDayDetail(index);
+        };
+
         function formatTime(date) {
             return date.toLocaleTimeString(currentLang === 'zh' ? 'zh-CN' : currentLang, { hour: '2-digit', minute: '2-digit' });
         }
@@ -1170,6 +1287,7 @@
 
             const threeDayContainer = document.getElementById('three-day-container');
             threeDayContainer.innerHTML = '';
+            lastWeatherData = data;
             for (let i = 0; i < 3; i++) {
                 if (!daily.time[i]) break;
                 const date = new Date(daily.time[i] + 'T12:00:00');
@@ -1180,7 +1298,7 @@
                 const text = getWeatherText(code);
                 
                 threeDayContainer.innerHTML += `
-                    <div style="flex:1; background:var(--bar-bg); border-radius:16px; padding:15px; text-align:center;">
+                    <div class="day-card ${selectedDayIndex === i ? 'selected' : ''}" data-index="${i}">
                         <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px; text-transform:uppercase;">${dayLabel}</div>
                         <div class="day-icon" style="width:56px;height:56px;flex-basis:56px;margin: 0 auto 10px auto;">${getWeatherIconHtml(code, 1)}</div>
                         <div style="font-size:24px; font-weight:700;">${maxT}°</div>
@@ -1189,6 +1307,8 @@
                     </div>
                 `;
             }
+            if (selectedDayIndex != null && daily.time[selectedDayIndex]) renderThreeDayDetail(selectedDayIndex);
+            else document.getElementById('three-day-detail').hidden = true;
 
             const weekContainer = document.getElementById('week-container');
             weekContainer.innerHTML = '';
