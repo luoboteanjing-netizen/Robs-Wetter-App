@@ -188,9 +188,6 @@
         .sub-details { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; display: flex; gap: 10px; flex-wrap: wrap;}
 
         /* Tendenz-Zeile */
-        .trend-info { font-size: 13px; color: var(--text-muted); margin-top: 6px; font-weight: 500; }
-        .trend-info span { color: var(--text-main); font-weight: 600; }
-
         .alert-box {
             background-color: var(--card-bg); border: 1px solid var(--border-color);
             border-radius: 20px; padding: 15px; margin: 0 20px 15px 20px;
@@ -349,7 +346,6 @@
                 <span>T <span id="low-temp">-°</span></span> • 
                 <span><span data-i18n="wind">WIND</span> <span id="wind-speed">-</span> KM/H</span>
             </div>
-            <div class="trend-info" id="trend-info" style="display: none;"></div>
         </div>
 
         <div class="alert-box" style="display:none;">
@@ -981,8 +977,7 @@
             mainPandaImg.src = `${pandaIconName}.png`;
             mainPandaImg.style.display = 'block'; // Wieder einblenden, falls es vorher einen Fehler hatte
 
-            // --- TENDENZ (Punkt 1) ---
-            const trendInfo = document.getElementById('trend-info');
+            // --- TENDENZ: Uhrzeit nur in der Box darunter ---
             const now = new Date();
             const nowKey = (current.time || '').slice(0, 13);
             let startIndex = nowKey
@@ -990,39 +985,34 @@
                 : hourly.time.findIndex(t => new Date(t) >= now);
             if (startIndex === -1) startIndex = 0;
             
-            let maxTemp = -Infinity, maxTime = null;
-            let minTemp = Infinity, minTime = null;
+            let maxTemp = -Infinity, maxIso = null;
+            let minTemp = Infinity, minIso = null;
             
-            for (let i = startIndex; i < Math.min(startIndex + 24, hourly.time.length); i++) {
+            for (let i = startIndex; i < Math.min(startIndex + 12, hourly.time.length); i++) {
                 const temp = hourly.temperature_2m[i];
-                const time = new Date(hourly.time[i]);
-                if (temp > maxTemp) { maxTemp = temp; maxTime = time; }
-                if (temp < minTemp) { minTemp = temp; minTime = time; }
+                if (temp > maxTemp) { maxTemp = temp; maxIso = hourly.time[i]; }
+                if (temp < minTemp) { minTemp = temp; minIso = hourly.time[i]; }
             }
             
             const currentTemp = current.temperature_2m;
             const isRising = Math.abs(currentTemp - minTemp) < Math.abs(currentTemp - maxTemp);
-            
-            if (maxTime && minTime) {
-                const targetTime = isRising ? maxTime : minTime;
-                const targetLabel = isRising ? t('trend_high') : t('trend_low');
-                const timeStr = targetTime.getHours() + (currentLang === 'zh' ? '时' : ' Uhr');
-                trendInfo.innerHTML = `${targetLabel} <span>${timeStr}</span>`;
-                trendInfo.style.display = 'block';
-            } else {
-                trendInfo.style.display = 'none';
-            }
+            const trendHour = (iso) => {
+                const hour = Number(String(iso).slice(11, 13));
+                return currentLang === 'zh' ? hour + '时' : hour + ' Uhr';
+            };
+            const trendDesc = (maxIso && minIso)
+                ? `${isRising ? t('trend_high') : t('trend_low')} ${Math.round(isRising ? maxTemp : minTemp)}° ${t('trend_around')} ${trendHour(isRising ? maxIso : minIso)}`
+                : `${t('max_temp')} ${Math.round(daily.temperature_2m_max[0])}°`;
 
             const rainProb = daily.precipitation_probability_max[0];
             const alertBox = document.querySelector('.alert-box');
             alertBox.style.display = 'flex';
             if (rainProb > 50) {
                 document.getElementById('alert-title').innerText = `${t('rain_risk')} (${rainProb}%)`;
-                document.getElementById('alert-desc').innerText = `${t('max_temp')} ${Math.round(daily.temperature_2m_max[0])}°`;
             } else {
                 document.getElementById('alert-title').innerText = t('dry_until');
-                document.getElementById('alert-desc').innerText = `${t('max_temp')} ${Math.round(daily.temperature_2m_max[0])}° ${t('around')}`;
             }
+            document.getElementById('alert-desc').innerText = trendDesc;
 
             // --- 48h VIEW ---
             const hourlyContainer = document.getElementById('hourly-container');
