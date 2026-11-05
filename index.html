@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=1.1">
+    <link rel="manifest" href="manifest.json?v=1.2">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -192,10 +192,10 @@
         .alert-box {
             background-color: var(--card-bg); border: 1px solid var(--border-color);
             border-radius: 20px; padding: 15px; margin: 0 20px 15px 20px;
-            display: flex; align-items: center; gap: 15px;
+            display: flex; align-items: center; gap: 5px;
         }
         .alert-label { color: var(--accent-red); font-size: 12px; font-weight: 700; letter-spacing: 1px; min-width: 60px; }
-        .alert-text h4 { font-size: 16px; font-weight: 600; margin-bottom: 3px; }
+        .alert-text h4 { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
         .alert-text p { font-size: 14px; color: var(--text-muted); }
 
         .status-pill {
@@ -569,7 +569,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.1</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.2</span></div>
     </div>
 
     <script>
@@ -588,7 +588,7 @@
                 weather_data_by: "Wetterdaten von",
                 today: "Heute", tomorrow: "Morgen", day: "Tag", rain: "Regen",
                 no_favs: "Noch keine Favoriten. Suche oben nach einer Stadt und tippe auf den Stern.",
-                loading: "LADE DATEN...", offline: "OFFLINE (CACHE)", stand: "STAND",
+                loading: "LADE DATEN...", offline: "OFFLINE (CACHE)", stand: "Letztes Update:",
                 clear: "Klar", partly_cloudy: "Teilweise bewölkt", cloudy: "Bedeckt", fog: "Nebel",
                 rain_c: "Regen", snow: "Schnee", showers: "Regenschauer", snow_showers: "Schneeschauer", thunder: "Gewitter",
                 dry_until: "Trocken bis mindestens 22 Uhr", max_temp: "Höchstwert", around: "gegen 15 Uhr", rain_risk: "Regenrisiko",
@@ -608,7 +608,7 @@
                 weather_data_by: "Weather data by",
                 today: "Today", tomorrow: "Tomorrow", day: "Day", rain: "Rain",
                 no_favs: "No favorites yet. Search for a city above and tap the star.",
-                loading: "LOADING...", offline: "OFFLINE (CACHE)", stand: "AS OF",
+                loading: "LOADING...", offline: "OFFLINE (CACHE)", stand: "Last update:",
                 clear: "Clear", partly_cloudy: "Partly cloudy", cloudy: "Overcast", fog: "Fog",
                 rain_c: "Rain", snow: "Snow", showers: "Showers", snow_showers: "Snow showers", thunder: "Thunderstorm",
                 dry_until: "Dry until at least 10 PM", max_temp: "Max", around: "around 3 PM", rain_risk: "Rain risk",
@@ -628,7 +628,7 @@
                 weather_data_by: "天气数据由",
                 today: "今天", tomorrow: "明天", day: "天", rain: "雨",
                 no_favs: "暂无收藏。在上方搜索城市并点击星号。",
-                loading: "加载中...", offline: "离线 (缓存)", stand: "截至",
+                loading: "加载中...", offline: "离线 (缓存)", stand: "最近更新:",
                 clear: "晴", partly_cloudy: "多云", cloudy: "阴", fog: "雾",
                 rain_c: "雨", snow: "雪", showers: "阵雨", snow_showers: "阵雪", thunder: "雷暴",
                 dry_until: "至少到晚上10点干燥", max_temp: "最高", around: "约下午3点", rain_risk: "降雨概率",
@@ -637,7 +637,7 @@
             }
         };
 
-        const APP_VERSION = '1.1';
+        const APP_VERSION = '1.2';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
