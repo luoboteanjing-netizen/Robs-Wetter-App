@@ -248,8 +248,11 @@
         .hourly-item .time { font-size: 12px; font-weight: 600; color: var(--text-muted); }
         .hourly-item .time.now { color: var(--accent-red); }
         
-        .hourly-item .icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
-        .hourly-item .icon img, .hourly-item .icon svg, .hourly-item .icon .wx-icon { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .hourly-item .icon { width: 40px; height: 40px; flex: 0 0 40px; display: flex; align-items: center; justify-content: center; }
+        .hourly-item .icon img,
+        .hourly-item .icon svg,
+        .hourly-item .icon .wx-icon,
+        .hourly-item .icon .wx-icon svg { width: 100%; height: 100%; object-fit: contain; display: block; }
         
         .hourly-item .temp { font-size: 16px; font-weight: 600; }
         
@@ -799,7 +802,7 @@
 
         // --- METEOICONS MAPPING (WMO Codes) ---
         function getMeteoconUrl(code, isDay = 1) {
-            const day = isDay === 1;
+            const day = isDay === 1 || isDay === true;
             if (code === 0) return day ? 'clear-day' : 'clear-night';
             if (code === 1) return day ? 'partly-cloudy-day' : 'partly-cloudy-night';
             if (code === 2) return day ? 'partly-cloudy-day' : 'partly-cloudy-night';
@@ -976,7 +979,10 @@
             // --- TENDENZ (Punkt 1) ---
             const trendInfo = document.getElementById('trend-info');
             const now = new Date();
-            let startIndex = hourly.time.findIndex(t => new Date(t) >= now);
+            const nowKey = (current.time || '').slice(0, 13);
+            let startIndex = nowKey
+                ? hourly.time.findIndex(t => t.slice(0, 13) >= nowKey)
+                : hourly.time.findIndex(t => new Date(t) >= now);
             if (startIndex === -1) startIndex = 0;
             
             let maxTemp = -Infinity, maxTime = null;
@@ -1017,12 +1023,18 @@
             const hourlyContainer = document.getElementById('hourly-container');
             hourlyContainer.innerHTML = '';
 
-            for (let i = startIndex; i < startIndex + 12; i++) {
+            for (let i = startIndex; i < startIndex + 48; i++) {
                 if(!hourly.time[i]) break;
-                const time = new Date(hourly.time[i]);
+                const hour = Number(hourly.time[i].slice(11, 13));
                 const isDay = hourly.is_day[i] === 1;
+                const pop = hourly.precipitation_probability?.[i] ?? 0;
+                let code = Number(hourly.weather_code[i]);
+                if (!isPrecipCode(code)) {
+                    if (pop >= 70) code = 61;
+                    else if (pop >= 40 && code <= 1) code = 2;
+                }
                 
-                const label = i === startIndex ? t('now') : time.getHours() + (currentLang==='zh'?'时':' Uhr');
+                const label = i === startIndex ? t('now') : hour + (currentLang==='zh'?'时':' Uhr');
                 const temp = Math.round(hourly.temperature_2m[i]);
                 const windSpeed = Math.round(hourly.wind_speed_10m[i]);
                 const windDir = hourly.wind_direction_10m[i];
@@ -1032,7 +1044,7 @@
                 hourlyContainer.innerHTML += `
                     <div class="hourly-item ${!isDay ? 'is-night' : ''}">
                         <div class="time ${i===startIndex ? 'now' : ''}">${label}</div>
-                        <div class="icon">${getWeatherIconHtml(hourly.weather_code[i], isDay)}</div>
+                        <div class="icon">${getWeatherIconHtml(code, isDay ? 1 : 0)}</div>
                         <div class="temp">${temp}°</div>
                         <div class="wind-info">
                             <span class="wind-arrow" style="transform: rotate(${arrowRotation}deg);">➤</span>
