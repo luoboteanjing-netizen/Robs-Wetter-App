@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=1.6">
+    <link rel="manifest" href="manifest.json?v=1.7">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -390,6 +390,24 @@
 
         .footer { text-align: center; padding: 30px 20px; font-size: 12px; color: var(--text-muted); letter-spacing: 1px; }
         .footer a { color: var(--text-muted); text-decoration: none; }
+        .log-switches { display: flex; gap: 6px; margin-bottom: 10px; }
+        .log-switch {
+            flex: 1; padding: 8px 4px; border-radius: 16px; border: 1px solid var(--border-color);
+            background: transparent; color: var(--text-main); font-size: 11px; font-weight: 700; cursor: pointer;
+        }
+        .log-switch.active { background: var(--accent-red); border-color: var(--accent-red); color: white; }
+        .log-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .log-nav button {
+            width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-color);
+            background: var(--card-bg); color: var(--text-main); font-size: 22px; cursor: pointer;
+        }
+        .log-nav input, .log-nav select {
+            flex: 1; background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 8px 10px; font-size: 14px;
+        }
+        .log-chart { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 8px; min-height: 200px; }
+        .log-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 48px 12px; }
+        .log-note { color: var(--text-muted); font-size: 12px; margin-top: 10px; line-height: 1.4; }
         .app-version {
             margin-top: auto;
             padding: 28px 20px 32px;
@@ -603,6 +621,11 @@
                 </div>
             </div>
             <div class="info-box">
+                <h3 data-i18n="log_title">VERLAUF</h3>
+                <p data-i18n="log_hint">Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag für den Ort gespeichert.</p>
+                <button class="toggle-btn" style="width:100%;" onclick="openLogPage()" data-i18n="log_open">DIAGRAMM ÖFFNEN</button>
+            </div>
+            <div class="info-box">
                 <h3 data-i18n="sources">QUELLEN</h3>
                 <p><strong style="color:var(--accent-red);">Weather data by Open-Meteo.com</strong></p>
                 <p><strong>Deutscher Wetterdienst (DWD)</strong></p>
@@ -613,7 +636,30 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.6</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.7</span></div>
+    </div>
+
+    <div class="sub-page" id="page-log">
+        <div class="sub-header">
+            <div class="back-btn" onclick="closePage('page-log')">‹</div>
+            <div class="sub-title" data-i18n="log_title">VERLAUF</div>
+            <div class="logo-area"><div class="logo-red">PANDA</div><div class="logo-white" data-i18n="app_title">WETTER</div></div>
+        </div>
+        <div class="sub-content">
+            <select id="log-place" class="log-nav" style="width:100%; margin-bottom:12px;"></select>
+            <div class="log-switches" id="log-metrics"></div>
+            <div class="log-switches" id="log-ranges"></div>
+            <div class="log-nav">
+                <button type="button" id="log-prev" aria-label="Zurück">‹</button>
+                <input type="date" id="log-date">
+                <input type="month" id="log-month" hidden>
+                <select id="log-year" hidden></select>
+                <button type="button" id="log-next" aria-label="Weiter">›</button>
+            </div>
+            <div class="log-chart" id="log-chart"></div>
+            <p class="log-note" data-i18n="log_note">Gespeichert auf diesem Gerät, ein Verlauf pro Ort. Export schreibt eine echte Datei.</p>
+            <button class="toggle-btn" style="width:100%;" onclick="exportWeatherLog()" data-i18n="log_export">ALS DATEI SPEICHERN</button>
+        </div>
     </div>
 
     <script>
@@ -626,6 +672,12 @@
                 language: "SPRACHE", display: "DARSTELLUNG", auto: "AUTO", light: "HELL", dark: "DUNKEL",
                 sources: "QUELLEN", privacy: "DATENSCHUTZ", privacy_text: "Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.",
                 version: "Version",
+                log_title: "VERLAUF", log_open: "DIAGRAMM ÖFFNEN", log_export: "ALS DATEI SPEICHERN",
+                log_hint: "Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag für den Ort gespeichert.",
+                log_note: "Gespeichert auf diesem Gerät, ein Verlauf pro Ort. Export schreibt eine echte Datei.",
+                log_empty: "In diesem Zeitraum gibt es noch keine Messungen.",
+                log_day: "1 TAG", log_week: "1 WOCHE", log_month: "1 MONAT", log_year: "1 JAHR",
+                log_temp: "TEMP", log_sun: "SONNE", log_wind: "WIND", log_pressure: "DRUCK", log_rain: "REGEN",
                 feels_like: "GEFÜHLT", wind: "WIND", pressure: "Luftdruck:", now: "JETZT", tap_for_details: "TIPPEN FÜR VERLAUF",
                 tab_48h: "48 STD", tab_3d: "3 TAGE", tab_7d: "7 TAGE", tab_16d: "16 TAGE", tab_radar: "RADAR",
                 hourly: "STUNDENVERLAUF", until_16: "BIS 16 TAGE", unsure: "UNSICHER", radar_dwd: "RADAR (DWD)",
@@ -647,6 +699,12 @@
                 language: "LANGUAGE", display: "APPEARANCE", auto: "AUTO", light: "LIGHT", dark: "DARK",
                 sources: "SOURCES", privacy: "PRIVACY", privacy_text: "No tracking, no analytics, no ads, no accounts. The app only requests weather services with coordinates. Favorites, location and forecasts remain on this device.",
                 version: "Version",
+                log_title: "HISTORY", log_open: "OPEN CHART", log_export: "SAVE AS FILE",
+                log_hint: "On open, temperature, sunshine, wind, pressure and precipitation are stored for this place.",
+                log_note: "Stored on this device, one history per place. Export writes a real file.",
+                log_empty: "No readings in this period yet.",
+                log_day: "1 DAY", log_week: "1 WEEK", log_month: "1 MONTH", log_year: "1 YEAR",
+                log_temp: "TEMP", log_sun: "SUN", log_wind: "WIND", log_pressure: "PRESSURE", log_rain: "RAIN",
                 feels_like: "FEELS LIKE", wind: "WIND", pressure: "Pressure:", now: "NOW", tap_for_details: "TAP FOR DETAILS",
                 tab_48h: "48 HRS", tab_3d: "3 DAYS", tab_7d: "7 DAYS", tab_16d: "16 DAYS", tab_radar: "RADAR",
                 hourly: "HOURLY FORECAST", until_16: "UP TO 16 DAYS", unsure: "UNCERTAIN", radar_dwd: "RADAR (DWD)",
@@ -668,6 +726,12 @@
                 language: "语言", display: "显示", auto: "自动", light: "浅色", dark: "深色",
                 sources: "数据来源", privacy: "隐私", privacy_text: "无追踪，无分析，无广告，无账户。应用仅使用坐标请求天气服务。收藏、位置和预报保留在本设备上。",
                 version: "版本",
+                log_title: "记录", log_open: "打开图表", log_export: "保存为文件",
+                log_hint: "打开应用时会保存该地点的温度、日照、风速、气压和降水量。",
+                log_note: "保存在本设备上，每个地点一份记录。导出会写成真正的文件。",
+                log_empty: "这个时间段还没有记录。",
+                log_day: "1天", log_week: "1周", log_month: "1月", log_year: "1年",
+                log_temp: "温度", log_sun: "日照", log_wind: "风", log_pressure: "气压", log_rain: "降水",
                 feels_like: "体感温度", wind: "风速", pressure: "气压:", now: "现在", tap_for_details: "点击查看详情",
                 tab_48h: "48小时", tab_3d: "3天", tab_7d: "7天", tab_16d: "16天", tab_radar: "雷达",
                 hourly: "每小时预报", until_16: "16天预报", unsure: "不确定", radar_dwd: "雷达 (DWD)",
@@ -684,7 +748,7 @@
             }
         };
 
-        const APP_VERSION = '1.6';
+        const APP_VERSION = '1.7';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -918,10 +982,277 @@
         }
         document.getElementById('geo-trigger').onclick = loadLocation;
 
+        // --- 5b. VERLAUF ---
+        let logRange = 'day';
+        let logMetric = 'temp';
+        let logAnchor = new Date();
+
+        const LOG_METRICS = {
+            temp: { key: 'temp', unit: '°C', agg: 'avg' },
+            sun: { key: 'sun', unit: 'h', agg: 'max' },
+            wind: { key: 'wind', unit: 'km/h', agg: 'avg' },
+            pressure: { key: 'pressure', unit: 'hPa', agg: 'avg' },
+            rain: { key: 'rain', unit: 'mm', agg: 'max' }
+        };
+
+        function logStorageKey(lat, lon) {
+            return `panda_log_${Number(lat).toFixed(3)}_${Number(lon).toFixed(3)}`;
+        }
+
+        function readLogIndex() {
+            try { return JSON.parse(localStorage.getItem('panda_log_index')) || []; }
+            catch { return []; }
+        }
+
+        function readLog(key) {
+            try { return JSON.parse(localStorage.getItem(key)) || null; }
+            catch { return null; }
+        }
+
+        function sumUntilNow(hourly, field, nowKey, divisor) {
+            if (!hourly?.time || !hourly[field]) return 0;
+            const day = (nowKey || hourly.time[0] || '').slice(0, 10);
+            let sum = 0;
+            for (let i = 0; i < hourly.time.length; i++) {
+                if (!hourly.time[i].startsWith(day)) continue;
+                if (nowKey && hourly.time[i].slice(0, 13) > nowKey) break;
+                sum += Number(hourly[field][i] || 0);
+            }
+            return divisor ? sum / divisor : sum;
+        }
+
+        function appendWeatherLog(lat, lon, name, data, timestamp) {
+            try {
+                const key = logStorageKey(lat, lon);
+                const store = readLog(key) || { name, lat, lon, entries: [] };
+                const last = store.entries[store.entries.length - 1];
+                if (last && timestamp - last.t < 60 * 1000) return;
+                const nowKey = (data.current?.time || '').slice(0, 13);
+                const round1 = (value) => Math.round(Number(value) * 10) / 10;
+                store.name = name;
+                store.lat = lat;
+                store.lon = lon;
+                store.entries.push({
+                    t: timestamp,
+                    temp: round1(data.current.temperature_2m),
+                    sun: round1(sumUntilNow(data.hourly, 'sunshine_duration', nowKey, 3600)),
+                    wind: round1(data.current.wind_speed_10m),
+                    pressure: Math.round(data.current.surface_pressure || 0),
+                    rain: round1(sumUntilNow(data.hourly, 'precipitation', nowKey))
+                });
+                if (store.entries.length > 8000) store.entries = store.entries.slice(-8000);
+                localStorage.setItem(key, JSON.stringify(store));
+                const index = readLogIndex().filter(item => item.key !== key);
+                index.push({ key, name, lat, lon });
+                localStorage.setItem('panda_log_index', JSON.stringify(index));
+            } catch (err) {
+                console.error('Verlauf nicht gespeichert', err);
+            }
+        }
+
+        function startOfDay(date) {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+
+        function startOfWeek(date) {
+            const d = startOfDay(date);
+            d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+            return d;
+        }
+
+        function addDays(date, days) {
+            const d = new Date(date);
+            d.setDate(d.getDate() + days);
+            return d;
+        }
+
+        function isoDay(date) {
+            const z = (n) => String(n).padStart(2, '0');
+            return `${date.getFullYear()}-${z(date.getMonth() + 1)}-${z(date.getDate())}`;
+        }
+
+        function logRangeBounds(anchor, range) {
+            const start = startOfDay(anchor);
+            if (range === 'week') {
+                const from = startOfWeek(anchor);
+                return { from, to: addDays(from, 7) };
+            }
+            if (range === 'month') {
+                const from = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+                return { from, to: new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1) };
+            }
+            if (range === 'year') {
+                const from = new Date(anchor.getFullYear(), 0, 1);
+                return { from, to: new Date(anchor.getFullYear() + 1, 0, 1) };
+            }
+            return { from: start, to: addDays(start, 1) };
+        }
+
+        function aggregateEntries(entries, metric, range) {
+            const spec = LOG_METRICS[metric];
+            const buckets = new Map();
+            entries.forEach(entry => {
+                const date = new Date(entry.t);
+                const bucket = range === 'year'
+                    ? `${date.getFullYear()}-${date.getMonth()}`
+                    : isoDay(date);
+                if (!buckets.has(bucket)) buckets.set(bucket, []);
+                buckets.get(bucket).push(entry);
+            });
+            return [...buckets.entries()].map(([bucket, rows]) => {
+                const values = rows.map(row => Number(row[spec.key])).filter(value => !Number.isNaN(value));
+                const y = spec.agg === 'max'
+                    ? Math.max(...values)
+                    : values.reduce((sum, value) => sum + value, 0) / values.length;
+                const sample = rows[rows.length - 1];
+                const date = new Date(sample.t);
+                const label = range === 'year'
+                    ? date.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : currentLang, { month: 'short' })
+                    : String(date.getDate()) + '.';
+                return { x: date.getTime(), y: Math.round(y * 10) / 10, label };
+            }).sort((a, b) => a.x - b.x);
+        }
+
+        function pointsForLog(entries, metric, range, anchor) {
+            const bounds = logRangeBounds(anchor, range);
+            const inside = entries.filter(entry => entry.t >= bounds.from.getTime() && entry.t < bounds.to.getTime());
+            if (range === 'day') {
+                return inside.map(entry => ({
+                    x: entry.t,
+                    y: Number(entry[LOG_METRICS[metric].key]),
+                    label: formatTime(new Date(entry.t))
+                }));
+            }
+            return aggregateEntries(inside, metric, range);
+        }
+
+        function drawLogChart(points, unit) {
+            const host = document.getElementById('log-chart');
+            if (!points.length) {
+                host.innerHTML = `<div class="log-empty">${t('log_empty')}</div>`;
+                return;
+            }
+            const w = 340, h = 200, pad = { l: 42, r: 10, t: 14, b: 28 };
+            const ys = points.map(point => point.y);
+            let minY = Math.min(...ys);
+            let maxY = Math.max(...ys);
+            if (minY === maxY) { minY -= 1; maxY += 1; }
+            const minX = points[0].x;
+            const maxX = points[points.length - 1].x;
+            const spanX = Math.max(1, maxX - minX);
+            const px = (value) => pad.l + ((value - minX) / spanX) * (w - pad.l - pad.r);
+            const py = (value) => pad.t + (1 - (value - minY) / (maxY - minY)) * (h - pad.t - pad.b);
+            const line = points.map((point, i) => `${i ? 'L' : 'M'}${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
+            const dots = points.map(point => `<circle cx="${px(point.x).toFixed(1)}" cy="${py(point.y).toFixed(1)}" r="3.2" fill="var(--accent-red)"/>`).join('');
+            const yLabels = [maxY, (maxY + minY) / 2, minY].map(value => {
+                const y = py(value);
+                return `<text x="0" y="${y + 4}" fill="var(--text-muted)" font-size="10">${Math.round(value * 10) / 10}</text>`;
+            }).join('');
+            const step = Math.max(1, Math.ceil(points.length / 4));
+            const xLabels = points.filter((_, i) => i % step === 0 || i === points.length - 1).map(point => {
+                return `<text x="${px(point.x).toFixed(1)}" y="${h - 6}" text-anchor="middle" fill="var(--text-muted)" font-size="10">${point.label}</text>`;
+            }).join('');
+            host.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="210">
+                <text x="${w - 8}" y="12" text-anchor="end" fill="var(--text-muted)" font-size="10">${unit}</text>
+                ${yLabels}
+                <path d="${line}" fill="none" stroke="var(--accent-red)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+                ${dots}
+                ${xLabels}
+            </svg>`;
+        }
+
+        function shiftLogAnchor(direction) {
+            const next = new Date(logAnchor);
+            if (logRange === 'week') next.setDate(next.getDate() + direction * 7);
+            else if (logRange === 'month') next.setMonth(next.getMonth() + direction);
+            else if (logRange === 'year') next.setFullYear(next.getFullYear() + direction);
+            else next.setDate(next.getDate() + direction);
+            logAnchor = next;
+        }
+
+        function renderLogPage() {
+            const index = readLogIndex();
+            const place = document.getElementById('log-place');
+            const currentKey = logStorageKey(currentLat, currentLon);
+            if (!logPlaceKey) logPlaceKey = currentKey;
+            if (!index.some(item => item.key === logPlaceKey)) logPlaceKey = index[0]?.key || currentKey;
+            place.innerHTML = index.length
+                ? index.map(item => `<option value="${item.key}">${item.name}</option>`).join('')
+                : `<option value="${currentKey}">${currentCityName}</option>`;
+            place.value = logPlaceKey;
+
+            document.getElementById('log-metrics').innerHTML = Object.keys(LOG_METRICS).map(key =>
+                `<button type="button" class="log-switch ${logMetric === key ? 'active' : ''}" data-metric="${key}">${t('log_' + key)}</button>`
+            ).join('');
+            document.getElementById('log-ranges').innerHTML = ['day', 'week', 'month', 'year'].map(key =>
+                `<button type="button" class="log-switch ${logRange === key ? 'active' : ''}" data-range="${key}">${t('log_' + key)}</button>`
+            ).join('');
+
+            const dateInput = document.getElementById('log-date');
+            const monthInput = document.getElementById('log-month');
+            const yearInput = document.getElementById('log-year');
+            dateInput.hidden = logRange === 'month' || logRange === 'year';
+            monthInput.hidden = logRange !== 'month';
+            yearInput.hidden = logRange !== 'year';
+            dateInput.value = isoDay(logAnchor);
+            monthInput.value = isoDay(logAnchor).slice(0, 7);
+            const years = new Set(index.flatMap(item => (readLog(item.key)?.entries || []).map(entry => new Date(entry.t).getFullYear())));
+            years.add(new Date().getFullYear());
+            yearInput.innerHTML = [...years].sort().map(year => `<option value="${year}">${year}</option>`).join('');
+            yearInput.value = String(logAnchor.getFullYear());
+
+            const store = readLog(logPlaceKey);
+            const points = pointsForLog(store?.entries || [], logMetric, logRange, logAnchor);
+            drawLogChart(points, LOG_METRICS[logMetric].unit);
+        }
+
+        function openLogPage() {
+            openPage('page-log');
+            logPlaceKey = logStorageKey(currentLat, currentLon);
+            renderLogPage();
+        }
+
+        function exportWeatherLog() {
+            const store = readLog(logPlaceKey) || { name: currentCityName, entries: [] };
+            const header = 'zeit,temperatur_c,sonnenstunden,wind_kmh,luftdruck_hpa,niederschlag_mm';
+            const rows = store.entries.map(entry => [
+                new Date(entry.t).toISOString(),
+                entry.temp, entry.sun, entry.wind, entry.pressure, entry.rain
+            ].join(','));
+            const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${(store.name || 'wetter').replace(/[^\w\-]+/g, '_')}.csv`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        let logPlaceKey = null;
+        document.getElementById('log-place').onchange = (event) => { logPlaceKey = event.target.value; renderLogPage(); };
+        document.getElementById('log-metrics').onclick = (event) => {
+            const key = event.target.dataset.metric;
+            if (!key) return;
+            logMetric = key;
+            renderLogPage();
+        };
+        document.getElementById('log-ranges').onclick = (event) => {
+            const key = event.target.dataset.range;
+            if (!key) return;
+            logRange = key;
+            renderLogPage();
+        };
+        document.getElementById('log-prev').onclick = () => { shiftLogAnchor(-1); renderLogPage(); };
+        document.getElementById('log-next').onclick = () => { shiftLogAnchor(1); renderLogPage(); };
+        document.getElementById('log-date').onchange = (event) => { logAnchor = new Date(event.target.value + 'T12:00:00'); renderLogPage(); };
+        document.getElementById('log-month').onchange = (event) => { logAnchor = new Date(event.target.value + '-01T12:00:00'); renderLogPage(); };
+        document.getElementById('log-year').onchange = (event) => { logAnchor = new Date(Number(event.target.value), logAnchor.getMonth(), 1); renderLogPage(); };
+
         // --- 6. WETTER DATEN ---
         async function fetchWeather(lat, lon, name, region) {
             setStatus(t('loading'), true);
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m,surface_pressure&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=16`;
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m,surface_pressure,sunshine_duration&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=16`;
             
             try {
                 const response = await fetch(url);
@@ -932,6 +1263,7 @@
                 localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
                 
                 updateUI(data, name, region, timestamp);
+                appendWeatherLog(lat, lon, name, data, timestamp);
                 setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false);
             } catch (error) {
                 console.error("Fehler beim Laden:", error);
