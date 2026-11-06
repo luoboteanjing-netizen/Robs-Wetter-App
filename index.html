@@ -302,8 +302,8 @@
         /* Tagesverlauf vertikal: Uhrzeit, Icon, Temperatur, Regenwahrscheinlichkeit, Wind */
         .hour-list { display: flex; flex-direction: column; }
         .hour-row {
-            display: grid; grid-template-columns: 50px 34px 1fr 52px 70px; align-items: center; gap: 6px;
-            padding: 6px 8px; border-bottom: 1px solid var(--border-color); border-radius: 8px;
+            display: grid; grid-template-columns: 44px 30px 38px 40px minmax(0, 1fr); align-items: center; gap: 4px;
+            padding: 6px 4px; border-bottom: 1px solid var(--border-color); border-radius: 8px;
         }
         .hour-row:last-child { border-bottom: none; }
         .hour-row.is-night { background-color: var(--night-highlight); }
@@ -312,7 +312,8 @@
         .hour-icon img, .hour-icon svg, .hour-icon .wx-icon { width: 100%; height: 100%; object-fit: contain; display: block; }
         .hour-temp { font-size: 16px; font-weight: 700; }
         .hour-rain { font-size: 12px; color: var(--accent-blue); font-weight: 600; text-align: right; }
-        .hour-wind { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+        .hour-wind { display: flex; align-items: center; justify-content: flex-start; gap: 4px; padding-left: 6px; min-width: 0; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+        .hour-wind small { font-size: 10px; }
         .hour-wind .wind-arrow { display: inline-block; font-size: 12px; line-height: 1; }
         .day-detail-foot { margin-top: 14px; font-size: 12px; color: var(--text-muted); letter-spacing: 0.3px; text-transform: uppercase; text-align: center; }
         .day-icon { width: 44px; height: 44px; text-align: center; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; }
@@ -1647,7 +1648,7 @@
                         <div class="hour-icon">${getWeatherIconHtml(hourly.weather_code[i], isDay ? 1 : 0)}</div>
                         <div class="hour-temp">${Math.round(hourly.temperature_2m[i])}°</div>
                         <div class="hour-rain">${prob > 0 ? prob + ' %' : ''}</div>
-                        <div class="hour-wind"><span class="wind-arrow" style="transform: rotate(${windDir + 90}deg);">➤</span>${windSpeed} km/h</div>
+                        <div class="hour-wind"><span class="wind-arrow" style="transform: rotate(${windDir + 90}deg);">➤</span>${windSpeed}<small>km/h</small></div>
                     </div>
                 `);
             }
