@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=1.7">
+    <link rel="manifest" href="manifest.json?v=1.8">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -622,7 +622,7 @@
             </div>
             <div class="info-box">
                 <h3 data-i18n="log_title">VERLAUF</h3>
-                <p data-i18n="log_hint">Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag für den Ort gespeichert.</p>
+                <p data-i18n="log_hint">Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag gespeichert. Fehlende Tage werden bis zu 30 Tage nachgeladen.</p>
                 <button class="toggle-btn" style="width:100%;" onclick="openLogPage()" data-i18n="log_open">DIAGRAMM ÖFFNEN</button>
             </div>
             <div class="info-box">
@@ -636,7 +636,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.7</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.8</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -673,7 +673,7 @@
                 sources: "QUELLEN", privacy: "DATENSCHUTZ", privacy_text: "Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.",
                 version: "Version",
                 log_title: "VERLAUF", log_open: "DIAGRAMM ÖFFNEN", log_export: "ALS DATEI SPEICHERN",
-                log_hint: "Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag für den Ort gespeichert.",
+                log_hint: "Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag gespeichert. Fehlende Tage werden bis zu 30 Tage nachgeladen.",
                 log_note: "Gespeichert auf diesem Gerät, ein Verlauf pro Ort. Export schreibt eine echte Datei.",
                 log_empty: "In diesem Zeitraum gibt es noch keine Messungen.",
                 log_day: "1 TAG", log_week: "1 WOCHE", log_month: "1 MONAT", log_year: "1 JAHR",
@@ -748,7 +748,7 @@
             }
         };
 
-        const APP_VERSION = '1.7';
+        const APP_VERSION = '1.8';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1050,6 +1050,49 @@
             }
         }
 
+        async function backfillWeatherLog(lat, lon, name) {
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_mean,sunshine_duration,wind_speed_10m_mean,precipitation_sum,surface_pressure_mean&timezone=auto&past_days=30&forecast_days=1`;
+                const response = await fetch(url);
+                if (!response.ok) return;
+                const data = await response.json();
+                const offset = data.utc_offset_seconds || 0;
+                const key = logStorageKey(lat, lon);
+                const store = readLog(key) || { name, lat, lon, entries: [] };
+                const covered = new Set(store.entries.map(entry => new Date(entry.t + offset * 1000).toISOString().slice(0, 10)));
+                const today = data.daily.time[data.daily.time.length - 1];
+                const round1 = (value) => Math.round(Number(value) * 10) / 10;
+                let added = 0;
+                data.daily.time.forEach((day, i) => {
+                    if (!day || day >= today || covered.has(day)) return;
+                    if (data.daily.temperature_2m_mean[i] == null) return;
+                    store.entries.push({
+                        t: Date.parse(day + 'T12:00:00Z') - offset * 1000,
+                        temp: round1(data.daily.temperature_2m_mean[i]),
+                        sun: round1((data.daily.sunshine_duration[i] || 0) / 3600),
+                        wind: round1(data.daily.wind_speed_10m_mean[i]),
+                        pressure: Math.round(data.daily.surface_pressure_mean[i] || 0),
+                        rain: round1(data.daily.precipitation_sum[i] || 0),
+                        hist: true
+                    });
+                    added++;
+                });
+                if (!added) return;
+                store.name = name;
+                store.lat = lat;
+                store.lon = lon;
+                store.entries.sort((a, b) => a.t - b.t);
+                if (store.entries.length > 8000) store.entries = store.entries.slice(-8000);
+                localStorage.setItem(key, JSON.stringify(store));
+                const index = readLogIndex().filter(item => item.key !== key);
+                index.push({ key, name, lat, lon });
+                localStorage.setItem('panda_log_index', JSON.stringify(index));
+                if (document.getElementById('page-log')?.classList.contains('active')) renderLogPage();
+            } catch (err) {
+                console.error('Vergangenheit nicht geladen', err);
+            }
+        }
+
         function startOfDay(date) {
             const d = new Date(date);
             d.setHours(0, 0, 0, 0);
@@ -1264,6 +1307,7 @@
                 
                 updateUI(data, name, region, timestamp);
                 appendWeatherLog(lat, lon, name, data, timestamp);
+                await backfillWeatherLog(lat, lon, name);
                 setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false);
             } catch (error) {
                 console.error("Fehler beim Laden:", error);
