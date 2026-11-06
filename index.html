@@ -1171,38 +1171,75 @@
             return aggregateEntries(inside, metric, range);
         }
 
-        function drawLogChart(points, unit) {
+        // Runde Skalenwerte (1, 2, 5, 10 ...), damit jede Beschriftung sauber ist
+        function niceTicks(minVal, maxVal, target = 4) {
+            if (minVal === maxVal) { minVal -= 1; maxVal += 1; }
+            const rough = (maxVal - minVal) / target;
+            const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+            const norm = rough / mag;
+            const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+            const lo = Math.floor(minVal / step + 1e-9) * step;
+            const hi = Math.ceil(maxVal / step - 1e-9) * step;
+            const ticks = [];
+            for (let v = lo; v <= hi + step / 2; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
+            return ticks;
+        }
+
+        function drawLogChart(points, unit, range, bounds) {
             const host = document.getElementById('log-chart');
             if (!points.length) {
                 host.innerHTML = `<div class="log-empty">${t('log_empty')}</div>`;
                 return;
             }
-            const w = 340, h = 200, pad = { l: 46, r: 10, t: 14, b: 28 };
+            // pad.l war 46, jetzt 10 px weiter links
+            const w = 340, h = 200, pad = { l: 36, r: 10, t: 14, b: 28 };
             const ys = points.map(point => point.y);
-            let minY = Math.floor(Math.min(...ys));
-            let maxY = Math.ceil(Math.max(...ys));
-            if (minY === maxY) { minY -= 1; maxY += 1; }
-            const minX = points[0].x;
-            const maxX = points[points.length - 1].x;
+            const yTicks = niceTicks(Math.min(...ys), Math.max(...ys));
+            const minY = yTicks[0];
+            const maxY = yTicks[yTicks.length - 1];
+
+            // X-Achse: bei Woche/Monat der komplette Zeitraum, sonst von Punkt zu Punkt
+            const fullRange = (range === 'week' || range === 'month') && bounds;
+            const minX = fullRange ? bounds.from.getTime() : points[0].x;
+            const maxX = fullRange ? bounds.to.getTime() : points[points.length - 1].x;
             const spanX = Math.max(1, maxX - minX);
             const px = (value) => pad.l + ((value - minX) / spanX) * (w - pad.l - pad.r);
             const py = (value) => pad.t + (1 - (value - minY) / (maxY - minY)) * (h - pad.t - pad.b);
             const formatAxis = (value) => Math.abs(value - Math.round(value)) < 0.05 ? String(Math.round(value)) : String(Math.round(value * 10) / 10);
-            const yTicks = Array.from({ length: 5 }, (_, i) => minY + (maxY - minY) * (4 - i) / 4);
+
+            // X-Ticks: { x, label } - pro Beschriftung entsteht unten auch eine Linie
+            let xTicks;
+            if (range === 'week' && bounds) {
+                xTicks = Array.from({ length: 7 }, (_, i) => {
+                    const day = addDays(bounds.from, i);
+                    const noon = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12);
+                    return { x: noon.getTime(), label: t('days')[day.getDay()] };
+                });
+            } else if (range === 'month' && bounds) {
+                const y = bounds.from.getFullYear(), m = bounds.from.getMonth();
+                const last = new Date(y, m + 1, 0).getDate();
+                const days = [1, 5, 10, 15, 20, 25];
+                if (last - 25 >= 3) days.push(last);
+                xTicks = days.map(d => ({ x: new Date(y, m, d, 12).getTime(), label: d + '.' }));
+            } else {
+                const step = Math.max(1, Math.ceil(points.length / 4));
+                xTicks = points
+                    .filter((_, i) => i % step === 0 || i === points.length - 1)
+                    .map(point => ({ x: point.x, label: point.label }));
+            }
+
             const gridY = yTicks.map(value => {
                 const y = py(value).toFixed(1);
                 return `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="#8e8e93" stroke-width="0.6"/>`;
             }).join('');
-            const step = Math.max(1, Math.ceil(points.length / 4));
-            const xTickPoints = points.filter((_, i) => i % step === 0 || i === points.length - 1);
-            const gridX = xTickPoints.map(point => {
-                const x = px(point.x).toFixed(1);
+            const gridX = xTicks.map(tick => {
+                const x = px(tick.x).toFixed(1);
                 return `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${h - pad.b}" stroke="#8e8e93" stroke-width="0.6"/>`;
             }).join('');
             const line = points.map((point, i) => `${i ? 'L' : 'M'}${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
             const dots = points.map(point => `<circle cx="${px(point.x).toFixed(1)}" cy="${py(point.y).toFixed(1)}" r="3.2" fill="var(--accent-red)"/>`).join('');
-            const yLabels = yTicks.map(value => `<text x="2" y="${py(value) + 3}" fill="var(--text-muted)" font-size="10">${formatAxis(value)}</text>`).join('');
-            const xLabels = xTickPoints.map(point => `<text x="${px(point.x).toFixed(1)}" y="${h - 6}" text-anchor="middle" fill="var(--text-muted)" font-size="10">${point.label}</text>`).join('');
+            const yLabels = yTicks.map(value => `<text x="2" y="${(py(value) + 3).toFixed(1)}" fill="var(--text-muted)" font-size="10">${formatAxis(value)}</text>`).join('');
+            const xLabels = xTicks.map(tick => `<text x="${px(tick.x).toFixed(1)}" y="${h - 6}" text-anchor="middle" fill="var(--text-muted)" font-size="10">${tick.label}</text>`).join('');
             host.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="210">
                 ${gridY}
                 ${gridX}
@@ -1256,7 +1293,7 @@
 
             const store = readLog(logPlaceKey);
             const points = pointsForLog(store?.entries || [], logMetric, logRange, logAnchor);
-            drawLogChart(points, LOG_METRICS[logMetric].unit);
+            drawLogChart(points, LOG_METRICS[logMetric].unit, logRange, logRangeBounds(logAnchor, logRange));
         }
 
         function openLogPage() {
