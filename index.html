@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=1.4">
+    <link rel="manifest" href="manifest.json?v=1.5">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -225,13 +225,14 @@
             display: none; animation: fadeIn 0.3s ease;
         }
         .card.active { display: block; }
+        #tab-48h { padding-bottom: 12px; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
         .graph-header { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; letter-spacing: 1px; margin-bottom: 20px; color: var(--text-muted); }
         .graph-header span:first-child { color: var(--accent-red); }
 
         /* 48h Stundenleiste: genau 6 Stunden sichtbar */
-        .hourly-scroll { container-type: inline-size; overflow-x: auto; scrollbar-width: none; margin: 0 -10px 20px; border-radius: 12px; }
+        .hourly-scroll { container-type: inline-size; overflow-x: auto; scrollbar-width: none; margin: 0 -10px 4px; border-radius: 12px; }
         .hourly-scroll::-webkit-scrollbar { display: none; }
         .hourly-track { width: calc(100cqi / 6 * var(--hours, 6)); }
         .hourly-items, .hourly-winds { display: flex; }
@@ -258,17 +259,17 @@
         
         .hourly-item .temp { font-size: 14px; font-weight: 600; }
         .hourly-item .time { white-space: nowrap; }
-        .hourly-line { display: block; width: 100%; height: 36px; }
+        .hourly-line { display: block; width: 100%; height: 72px; }
         .hourly-line path { fill: none; stroke: var(--accent-red); }
-        .hourly-dots { display: flex; height: 0; position: relative; top: -36px; pointer-events: none; }
-        .hourly-dot-slot { position: relative; flex: 0 0 calc(100cqi / 6); width: calc(100cqi / 6); height: 36px; }
+        .hourly-dots { display: flex; height: 0; position: relative; top: -72px; pointer-events: none; }
+        .hourly-dot-slot { position: relative; flex: 0 0 calc(100cqi / 6); width: calc(100cqi / 6); height: 72px; }
         .hourly-dot {
             position: absolute; left: 50%; width: 7px; height: 7px; margin-left: -3.5px; margin-top: -3.5px;
             border-radius: 50%; background: var(--accent-red); box-shadow: 0 0 0 2px var(--card-bg);
         }
         .hourly-wind {
             display: flex; align-items: center; justify-content: center; gap: 2px;
-            font-size: 10px; color: var(--text-muted); padding: 2px 0 6px;
+            font-size: 10px; color: var(--text-muted); padding: 2px 0 0;
         }
         .hourly-wind .wind-arrow { display: inline-block; font-size: 11px; line-height: 1; }
 
@@ -609,7 +610,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.4</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.5</span></div>
     </div>
 
     <script>
@@ -680,7 +681,7 @@
             }
         };
 
-        const APP_VERSION = '1.4';
+        const APP_VERSION = '1.5';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1216,7 +1217,7 @@
                 svg.innerHTML = '';
                 return;
             }
-            const height = 36;
+            const height = 72;
             const slot = 100;
             const min = Math.min(...temps);
             const max = Math.max(...temps);
