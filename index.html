@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=1.3">
+    <link rel="manifest" href="manifest.json?v=1.4">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -230,13 +230,17 @@
         .graph-header { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; letter-spacing: 1px; margin-bottom: 20px; color: var(--text-muted); }
         .graph-header span:first-child { color: var(--accent-red); }
 
-        /* 48h Stundenleiste */
-        .hourly-scroll { display: flex; overflow-x: auto; scrollbar-width: none; gap: 0; margin-bottom: 20px; border-radius: 12px; }
+        /* 48h Stundenleiste: genau 6 Stunden sichtbar */
+        .hourly-scroll { container-type: inline-size; overflow-x: auto; scrollbar-width: none; margin-bottom: 20px; border-radius: 12px; }
         .hourly-scroll::-webkit-scrollbar { display: none; }
-        
+        .hourly-track { width: calc(100cqi / 6 * var(--hours, 6)); }
+        .hourly-items, .hourly-winds { display: flex; }
+        .hourly-item, .hourly-wind {
+            flex: 0 0 calc(100cqi / 6); width: calc(100cqi / 6); box-sizing: border-box;
+        }
         .hourly-item { 
-            display: flex; flex-direction: column; align-items: center; gap: 8px; 
-            min-width: 60px; padding: 10px 5px; border-radius: 8px;
+            display: flex; flex-direction: column; align-items: center; gap: 4px; 
+            padding: 6px 0; border-radius: 8px;
             transition: background-color 0.3s;
         }
         
@@ -246,17 +250,21 @@
         .hourly-item .time { font-size: 12px; font-weight: 600; color: var(--text-muted); }
         .hourly-item .time.now { color: var(--accent-red); }
         
-        .hourly-item .icon { width: 40px; height: 40px; flex: 0 0 40px; display: flex; align-items: center; justify-content: center; }
+        .hourly-item .icon { width: 32px; height: 32px; flex: 0 0 32px; display: flex; align-items: center; justify-content: center; }
         .hourly-item .icon img,
         .hourly-item .icon svg,
         .hourly-item .icon .wx-icon,
         .hourly-item .icon .wx-icon svg { width: 100%; height: 100%; object-fit: contain; display: block; }
         
-        .hourly-item .temp { font-size: 16px; font-weight: 600; }
-        
-        /* Wind in 48h Ansicht */
-        .hourly-item .wind-info { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); margin-top: 2px;}
-        .hourly-item .wind-arrow { display: inline-block; font-size: 12px; transition: transform 0.3s; line-height: 1; }
+        .hourly-item .temp { font-size: 14px; font-weight: 600; }
+        .hourly-item .time { white-space: nowrap; }
+        .hourly-line { display: block; width: 100%; height: 36px; }
+        .hourly-line path { fill: none; stroke: var(--accent-red); }
+        .hourly-wind {
+            display: flex; align-items: center; justify-content: center; gap: 2px;
+            font-size: 10px; color: var(--text-muted); padding: 2px 0 6px;
+        }
+        .hourly-wind .wind-arrow { display: inline-block; font-size: 11px; line-height: 1; }
 
         .day-list { display: flex; flex-direction: column; }
         .day-row { display: flex; align-items: center; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid var(--border-color); }
@@ -457,7 +465,13 @@
                 <span data-i18n="hourly">STUNDENVERLAUF</span>
                 <span data-i18n="tab_48h">48 STD</span>
             </div>
-            <div class="hourly-scroll" id="hourly-container"></div>
+            <div class="hourly-scroll" id="hourly-container">
+                <div class="hourly-track" id="hourly-track">
+                    <div class="hourly-items" id="hourly-items"></div>
+                    <svg id="hourly-line" class="hourly-line" aria-hidden="true"></svg>
+                    <div class="hourly-winds" id="hourly-winds"></div>
+                </div>
+            </div>
         </div>
 
         <div class="card" id="tab-3d">
@@ -588,7 +602,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.3</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.4</span></div>
     </div>
 
     <script>
@@ -659,7 +673,7 @@
             }
         };
 
-        const APP_VERSION = '1.3';
+        const APP_VERSION = '1.4';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1171,6 +1185,44 @@
             renderThreeDayDetail(index);
         };
 
+        function hourlyCurve(points) {
+            if (!points.length) return '';
+            let d = `M ${points[0].x} ${points[0].y}`;
+            for (let i = 0; i < points.length - 1; i++) {
+                const p0 = points[Math.max(0, i - 1)];
+                const p1 = points[i];
+                const p2 = points[i + 1];
+                const p3 = points[Math.min(points.length - 1, i + 2)];
+                const cp1x = p1.x + (p2.x - p0.x) / 6;
+                const cp1y = p1.y + (p2.y - p0.y) / 6;
+                const cp2x = p2.x - (p3.x - p1.x) / 6;
+                const cp2y = p2.y - (p3.y - p1.y) / 6;
+                d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+            }
+            return d;
+        }
+
+        function drawHourlyLine(temps) {
+            const svg = document.getElementById('hourly-line');
+            if (!svg) return;
+            if (temps.length < 2) {
+                svg.innerHTML = '';
+                return;
+            }
+            const height = 36;
+            const slot = 100;
+            const min = Math.min(...temps);
+            const max = Math.max(...temps);
+            const span = Math.max(1, max - min);
+            const points = temps.map((temp, i) => ({
+                x: (i + 0.5) * slot,
+                y: 5 + (1 - (temp - min) / span) * (height - 10)
+            }));
+            svg.setAttribute('viewBox', `0 0 ${temps.length * slot} ${height}`);
+            svg.setAttribute('preserveAspectRatio', 'none');
+            svg.innerHTML = `<path d="${hourlyCurve(points)}" fill="none" stroke="var(--accent-red)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+        }
+
         function formatTime(date) {
             return date.toLocaleTimeString(currentLang === 'zh' ? 'zh-CN' : currentLang, { hour: '2-digit', minute: '2-digit' });
         }
@@ -1251,8 +1303,12 @@
             document.getElementById('alert-desc').innerText = trendDesc;
 
             // --- 48h VIEW ---
-            const hourlyContainer = document.getElementById('hourly-container');
-            hourlyContainer.innerHTML = '';
+            const hourlyItems = document.getElementById('hourly-items');
+            const hourlyWinds = document.getElementById('hourly-winds');
+            const hourlyTrack = document.getElementById('hourly-track');
+            hourlyItems.innerHTML = '';
+            hourlyWinds.innerHTML = '';
+            const hourlyTemps = [];
 
             for (let i = startIndex; i < startIndex + 48; i++) {
                 if(!hourly.time[i]) break;
@@ -1272,18 +1328,23 @@
                 
                 const arrowRotation = windDir + 90;
 
-                hourlyContainer.innerHTML += `
+                hourlyTemps.push(temp);
+                hourlyItems.innerHTML += `
                     <div class="hourly-item ${!isDay ? 'is-night' : ''}">
                         <div class="time ${i===startIndex ? 'now' : ''}">${label}</div>
                         <div class="icon">${getWeatherIconHtml(code, isDay ? 1 : 0)}</div>
                         <div class="temp">${temp}°</div>
-                        <div class="wind-info">
-                            <span class="wind-arrow" style="transform: rotate(${arrowRotation}deg);">➤</span>
-                            ${windSpeed}
-                        </div>
+                    </div>
+                `;
+                hourlyWinds.innerHTML += `
+                    <div class="hourly-wind">
+                        <span class="wind-arrow" style="transform: rotate(${arrowRotation}deg);">➤</span>
+                        ${windSpeed}
                     </div>
                 `;
             }
+            hourlyTrack.style.setProperty('--hours', String(Math.max(hourlyTemps.length, 6)));
+            drawHourlyLine(hourlyTemps);
 
             const threeDayContainer = document.getElementById('three-day-container');
             threeDayContainer.innerHTML = '';
