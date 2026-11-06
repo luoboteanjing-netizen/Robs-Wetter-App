@@ -1146,9 +1146,22 @@
             });
             return [...buckets.entries()].map(([bucket, rows]) => {
                 const values = rows.map(row => Number(row[spec.key])).filter(value => !Number.isNaN(value));
-                const y = spec.agg === 'max'
-                    ? Math.max(...values)
-                    : values.reduce((sum, value) => sum + value, 0) / values.length;
+                let y;
+                if (spec.agg === 'max' && range === 'year') {
+                    // Jahresansicht: Tagesgesamtwert (hoechster Eintrag des Tages) pro Tag, dann Summe ueber den Monat
+                    const perDay = new Map();
+                    rows.forEach(row => {
+                        const value = Number(row[spec.key]);
+                        if (Number.isNaN(value)) return;
+                        const dayKey = isoDay(new Date(row.t));
+                        perDay.set(dayKey, Math.max(perDay.has(dayKey) ? perDay.get(dayKey) : -Infinity, value));
+                    });
+                    y = [...perDay.values()].reduce((sum, value) => sum + value, 0);
+                } else {
+                    y = spec.agg === 'max'
+                        ? Math.max(...values)
+                        : values.reduce((sum, value) => sum + value, 0) / values.length;
+                }
                 const sample = rows[rows.length - 1];
                 const date = new Date(sample.t);
                 const label = range === 'year'
@@ -1387,8 +1400,9 @@
                 
                 updateUI(data, name, region, timestamp);
                 appendWeatherLog(lat, lon, name, data, timestamp);
-                await backfillWeatherLog(lat, lon, name);
                 setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false);
+                // Verlauf (60 Tage) erst im Hintergrund nachladen, nachdem die Hauptansicht steht
+                setTimeout(() => backfillWeatherLog(lat, lon, name), 1500);
             } catch (error) {
                 console.error("Fehler beim Laden:", error);
                 setStatus(t('offline'), false);
