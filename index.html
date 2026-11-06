@@ -198,7 +198,7 @@
         .alert-text h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
         .alert-text p { font-size: 14px; color: var(--text-muted); margin: 0; }
         .alert-pressure { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-        .pressure-arrow { width: 14px; height: 12px; display: block; flex: 0 0 auto; }
+        .pressure-arrow { display: inline-block; font-size: 14px; line-height: 1; }
 
         .status-pill {
             display: inline-flex; align-items: center; gap: 8px;
@@ -626,7 +626,7 @@
                 language: "SPRACHE", display: "DARSTELLUNG", auto: "AUTO", light: "HELL", dark: "DUNKEL",
                 sources: "QUELLEN", privacy: "DATENSCHUTZ", privacy_text: "Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.",
                 version: "Version",
-                feels_like: "GEFÜHLT", wind: "WIND", now: "JETZT", tap_for_details: "TIPPEN FÜR VERLAUF",
+                feels_like: "GEFÜHLT", wind: "WIND", pressure: "Luftdruck:", now: "JETZT", tap_for_details: "TIPPEN FÜR VERLAUF",
                 tab_48h: "48 STD", tab_3d: "3 TAGE", tab_7d: "7 TAGE", tab_16d: "16 TAGE", tab_radar: "RADAR",
                 hourly: "STUNDENVERLAUF", until_16: "BIS 16 TAGE", unsure: "UNSICHER", radar_dwd: "RADAR (DWD)",
                 weather_data_by: "Wetterdaten von",
@@ -647,7 +647,7 @@
                 language: "LANGUAGE", display: "APPEARANCE", auto: "AUTO", light: "LIGHT", dark: "DARK",
                 sources: "SOURCES", privacy: "PRIVACY", privacy_text: "No tracking, no analytics, no ads, no accounts. The app only requests weather services with coordinates. Favorites, location and forecasts remain on this device.",
                 version: "Version",
-                feels_like: "FEELS LIKE", wind: "WIND", now: "NOW", tap_for_details: "TAP FOR DETAILS",
+                feels_like: "FEELS LIKE", wind: "WIND", pressure: "Pressure:", now: "NOW", tap_for_details: "TAP FOR DETAILS",
                 tab_48h: "48 HRS", tab_3d: "3 DAYS", tab_7d: "7 DAYS", tab_16d: "16 DAYS", tab_radar: "RADAR",
                 hourly: "HOURLY FORECAST", until_16: "UP TO 16 DAYS", unsure: "UNCERTAIN", radar_dwd: "RADAR (DWD)",
                 weather_data_by: "Weather data by",
@@ -668,7 +668,7 @@
                 language: "语言", display: "显示", auto: "自动", light: "浅色", dark: "深色",
                 sources: "数据来源", privacy: "隐私", privacy_text: "无追踪，无分析，无广告，无账户。应用仅使用坐标请求天气服务。收藏、位置和预报保留在本设备上。",
                 version: "版本",
-                feels_like: "体感温度", wind: "风速", now: "现在", tap_for_details: "点击查看详情",
+                feels_like: "体感温度", wind: "风速", pressure: "气压:", now: "现在", tap_for_details: "点击查看详情",
                 tab_48h: "48小时", tab_3d: "3天", tab_7d: "7天", tab_16d: "16天", tab_radar: "雷达",
                 hourly: "每小时预报", until_16: "16天预报", unsure: "不确定", radar_dwd: "雷达 (DWD)",
                 weather_data_by: "天气数据由",
@@ -1249,10 +1249,8 @@
                 past = hourly.surface_pressure[pastIdx];
             }
             const rising = past == null || pressure >= past;
-            const arrow = rising
-                ? '<svg class="pressure-arrow" viewBox="0 0 14 12" aria-label="steigend"><path d="M7 0 L14 12 H0 Z" fill="currentColor"/></svg>'
-                : '<svg class="pressure-arrow" viewBox="0 0 14 12" aria-label="fallend"><path d="M0 0 H14 L7 12 Z" fill="currentColor"/></svg>';
-            return `${Math.round(pressure)} hPa ${arrow}`;
+            const arrow = `<span class="pressure-arrow wind-arrow" style="transform: rotate(${rising ? -90 : 90}deg);" aria-label="${rising ? 'steigend' : 'fallend'}">➤</span>`;
+            return `${t('pressure')} ${Math.round(pressure)} hPa ${arrow}`;
         }
 
         function formatTime(date) {
