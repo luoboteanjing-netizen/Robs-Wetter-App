@@ -231,7 +231,7 @@
         .graph-header span:first-child { color: var(--accent-red); }
 
         /* 48h Stundenleiste: genau 6 Stunden sichtbar */
-        .hourly-scroll { container-type: inline-size; overflow-x: auto; scrollbar-width: none; margin-bottom: 20px; border-radius: 12px; }
+        .hourly-scroll { container-type: inline-size; overflow-x: auto; scrollbar-width: none; margin: 0 -10px 20px; border-radius: 12px; }
         .hourly-scroll::-webkit-scrollbar { display: none; }
         .hourly-track { width: calc(100cqi / 6 * var(--hours, 6)); }
         .hourly-items, .hourly-winds { display: flex; }
@@ -260,6 +260,12 @@
         .hourly-item .time { white-space: nowrap; }
         .hourly-line { display: block; width: 100%; height: 36px; }
         .hourly-line path { fill: none; stroke: var(--accent-red); }
+        .hourly-dots { display: flex; height: 0; position: relative; top: -36px; pointer-events: none; }
+        .hourly-dot-slot { position: relative; flex: 0 0 calc(100cqi / 6); width: calc(100cqi / 6); height: 36px; }
+        .hourly-dot {
+            position: absolute; left: 50%; width: 7px; height: 7px; margin-left: -3.5px; margin-top: -3.5px;
+            border-radius: 50%; background: var(--accent-red); box-shadow: 0 0 0 2px var(--card-bg);
+        }
         .hourly-wind {
             display: flex; align-items: center; justify-content: center; gap: 2px;
             font-size: 10px; color: var(--text-muted); padding: 2px 0 6px;
@@ -469,6 +475,7 @@
                 <div class="hourly-track" id="hourly-track">
                     <div class="hourly-items" id="hourly-items"></div>
                     <svg id="hourly-line" class="hourly-line" aria-hidden="true"></svg>
+                    <div class="hourly-dots" id="hourly-dots"></div>
                     <div class="hourly-winds" id="hourly-winds"></div>
                 </div>
             </div>
@@ -1221,6 +1228,10 @@
             svg.setAttribute('viewBox', `0 0 ${temps.length * slot} ${height}`);
             svg.setAttribute('preserveAspectRatio', 'none');
             svg.innerHTML = `<path d="${hourlyCurve(points)}" fill="none" stroke="var(--accent-red)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+            const dots = document.getElementById('hourly-dots');
+            if (dots) {
+                dots.innerHTML = points.map(point => `<div class="hourly-dot-slot"><span class="hourly-dot" style="top:${(point.y / height * 100).toFixed(2)}%"></span></div>`).join('');
+            }
         }
 
         function formatTime(date) {
