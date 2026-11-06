@@ -299,6 +299,21 @@
         .day-part .day-icon { width: 40px; height: 40px; flex-basis: 40px; margin: 0 auto 6px; }
         .day-part-temp { font-size: 16px; font-weight: 700; }
         .day-part-rain { font-size: 12px; color: var(--accent-blue); font-weight: 600; min-height: 16px; margin-top: 2px; }
+        /* Tagesverlauf vertikal: Uhrzeit, Icon, Temperatur, Regenwahrscheinlichkeit, Wind */
+        .hour-list { display: flex; flex-direction: column; }
+        .hour-row {
+            display: grid; grid-template-columns: 50px 34px 1fr 52px 70px; align-items: center; gap: 6px;
+            padding: 6px 8px; border-bottom: 1px solid var(--border-color); border-radius: 8px;
+        }
+        .hour-row:last-child { border-bottom: none; }
+        .hour-row.is-night { background-color: var(--night-highlight); }
+        .hour-time { font-size: 13px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+        .hour-icon { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+        .hour-icon img, .hour-icon svg, .hour-icon .wx-icon { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .hour-temp { font-size: 16px; font-weight: 700; }
+        .hour-rain { font-size: 12px; color: var(--accent-blue); font-weight: 600; text-align: right; }
+        .hour-wind { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+        .hour-wind .wind-arrow { display: inline-block; font-size: 12px; line-height: 1; }
         .day-detail-foot { margin-top: 14px; font-size: 12px; color: var(--text-muted); letter-spacing: 0.3px; text-transform: uppercase; text-align: center; }
         .day-icon { width: 44px; height: 44px; text-align: center; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; }
         .day-icon img, .day-icon svg, .day-icon .wx-icon { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -1618,32 +1633,29 @@
             const hourly = data.hourly;
             const dateStr = daily.time[index];
             const date = new Date(dateStr + 'T12:00:00');
-            const parts = [
-                { key: 'part_night', start: 0, end: 6, day: 0 },
-                { key: 'part_morning', start: 6, end: 12, day: 1 },
-                { key: 'part_midday', start: 12, end: 18, day: 1 },
-                { key: 'part_evening', start: 18, end: 24, day: 0 }
-            ];
-            const columns = parts.map(part => {
-                const summary = periodSummary(hourly, dateStr, part.start, part.end);
-                if (!summary) {
-                    return `<div class="day-part"><div class="day-part-label">${t(part.key)}</div><div class="day-part-temp">-</div></div>`;
-                }
-                const range = summary.min === summary.max ? `${summary.min}°` : `${summary.min}-${summary.max}°`;
-                const rain = summary.precip >= 0.1 ? formatMm(summary.precip) : '';
-                return `
-                    <div class="day-part">
-                        <div class="day-part-label">${t(part.key)}</div>
-                        <div class="day-icon">${getWeatherIconHtml(summary.code, part.day)}</div>
-                        <div class="day-part-temp">${range}</div>
-                        <div class="day-part-rain">${rain}</div>
+            const rows = [];
+            for (let i = 0; i < hourly.time.length; i++) {
+                if (!hourly.time[i].startsWith(dateStr)) continue;
+                const hour = Number(hourly.time[i].slice(11, 13));
+                const isDay = hourly.is_day?.[i] === 1;
+                const prob = hourly.precipitation_probability?.[i];
+                const windSpeed = Math.round(hourly.wind_speed_10m?.[i] ?? 0);
+                const windDir = Number(hourly.wind_direction_10m?.[i] ?? 0);
+                rows.push(`
+                    <div class="hour-row ${isDay ? '' : 'is-night'}">
+                        <div class="hour-time">${String(hour).padStart(2, '0')}:00</div>
+                        <div class="hour-icon">${getWeatherIconHtml(hourly.weather_code[i], isDay ? 1 : 0)}</div>
+                        <div class="hour-temp">${Math.round(hourly.temperature_2m[i])}°</div>
+                        <div class="hour-rain">${prob > 0 ? prob + ' %' : ''}</div>
+                        <div class="hour-wind"><span class="wind-arrow" style="transform: rotate(${windDir + 90}deg);">➤</span>${windSpeed} km/h</div>
                     </div>
-                `;
-            }).join('');
+                `);
+            }
+            const columns = `<div class="hour-list">${rows.join('')}</div>`;
             const rain = daily.precipitation_probability_max?.[index];
             box.innerHTML = `
                 <div class="day-detail-title">${t('days')[date.getDay()]} ${getFormattedDate(date, 'day')}</div>
-                <div class="day-parts">${columns}</div>
+                ${columns}
                 <div class="day-detail-foot">${t('sun_hours')} ${clockFromIso(daily.sunrise?.[index])}-${clockFromIso(daily.sunset?.[index])} · ${t('rain')} ${rain ?? '-'} %</div>
             `;
             box.hidden = false;
