@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=1.9">
+    <link rel="manifest" href="manifest.json?v=2.0">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -652,7 +652,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">1.9</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.0</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -764,7 +764,7 @@
             }
         };
 
-        const APP_VERSION = '1.9';
+        const APP_VERSION = '2.0';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1634,32 +1634,62 @@
             const hourly = data.hourly;
             const dateStr = daily.time[index];
             const date = new Date(dateStr + 'T12:00:00');
-            const rows = [];
-            for (let i = 0; i < hourly.time.length; i++) {
-                if (!hourly.time[i].startsWith(dateStr)) continue;
-                const hour = Number(hourly.time[i].slice(11, 13));
+            const slots = [];
+            for (let hour = 0; hour <= 24; hour += 3) {
+                const stamp = hour === 24
+                    ? nextDateKey(dateStr) + 'T00:00'
+                    : `${dateStr}T${String(hour).padStart(2, '0')}:00`;
+                const i = hourly.time.findIndex(time => time.slice(0, 16) === stamp);
+                if (i < 0) continue;
                 const isDay = hourly.is_day?.[i] === 1;
-                const prob = hourly.precipitation_probability?.[i];
-                const windSpeed = Math.round(hourly.wind_speed_10m?.[i] ?? 0);
                 const windDir = Number(hourly.wind_direction_10m?.[i] ?? 0);
-                rows.push(`
-                    <div class="hour-row ${isDay ? '' : 'is-night'}">
-                        <div class="hour-time">${String(hour).padStart(2, '0')}:00</div>
-                        <div class="hour-icon">${getWeatherIconHtml(hourly.weather_code[i], isDay ? 1 : 0)}</div>
-                        <div class="hour-temp">${Math.round(hourly.temperature_2m[i])}°</div>
-                        <div class="hour-rain">${prob == null ? '-' : prob + ' %'}</div>
-                        <div class="hour-wind"><span class="wind-arrow" style="transform: rotate(${windDir + 90}deg);">➤</span>${windSpeed}<small>km/h</small></div>
-                    </div>
-                `);
+                slots.push({
+                    hour,
+                    isDay,
+                    temp: Math.round(hourly.temperature_2m[i]),
+                    code: Number(hourly.weather_code[i]),
+                    wind: Math.round(hourly.wind_speed_10m?.[i] ?? 0),
+                    arrow: windDir + 90
+                });
             }
-            const columns = `<div class="hour-list">${rows.join('')}</div>`;
             const rain = daily.precipitation_probability_max?.[index];
             box.innerHTML = `
                 <div class="day-detail-title">${t('days')[date.getDay()]} ${getFormattedDate(date, 'day')}</div>
-                ${columns}
+                <div class="hourly-scroll">
+                    <div class="hourly-track" style="--hours:${Math.max(slots.length, 6)}">
+                        <div class="hourly-items">
+                            ${slots.map(slot => `
+                                <div class="hourly-item ${slot.isDay ? '' : 'is-night'}">
+                                    <div class="time">${slot.hour}${currentLang === 'zh' ? '时' : ' Uhr'}</div>
+                                    <div class="icon">${getWeatherIconHtml(slot.code, slot.isDay ? 1 : 0)}</div>
+                                    <div class="temp">${slot.temp}°</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <svg id="day-hour-line" class="hourly-line" aria-hidden="true"></svg>
+                        <div class="hourly-dots" id="day-hour-dots"></div>
+                        <div class="hourly-winds">
+                            ${slots.map(slot => `
+                                <div class="hourly-wind">
+                                    <span class="wind-arrow" style="transform: rotate(${slot.arrow}deg);">➤</span>
+                                    ${slot.wind}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
                 <div class="day-detail-foot">${t('sun_hours')} ${clockFromIso(daily.sunrise?.[index])}-${clockFromIso(daily.sunset?.[index])} · ${t('rain')} ${rain ?? '-'} %</div>
             `;
             box.hidden = false;
+            drawHourlyLine(slots.map(slot => slot.temp), 'day-hour-line', 'day-hour-dots');
+        }
+
+        function nextDateKey(dateStr) {
+            const date = new Date(dateStr + 'T12:00:00');
+            date.setDate(date.getDate() + 1);
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${date.getFullYear()}-${month}-${day}`;
         }
 
         document.getElementById('three-day-container').onclick = (event) => {
@@ -1696,8 +1726,8 @@
             return d;
         }
 
-        function drawHourlyLine(temps) {
-            const svg = document.getElementById('hourly-line');
+        function drawHourlyLine(temps, lineId = 'hourly-line', dotsId = 'hourly-dots') {
+            const svg = document.getElementById(lineId);
             if (!svg) return;
             if (temps.length < 2) {
                 svg.innerHTML = '';
@@ -1715,7 +1745,7 @@
             svg.setAttribute('viewBox', `0 0 ${temps.length * slot} ${height}`);
             svg.setAttribute('preserveAspectRatio', 'none');
             svg.innerHTML = `<path d="${hourlyCurve(points)}" fill="none" stroke="var(--accent-red)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
-            const dots = document.getElementById('hourly-dots');
+            const dots = document.getElementById(dotsId);
             if (dots) {
                 dots.innerHTML = points.map(point => `<div class="hourly-dot-slot"><span class="hourly-dot" style="top:${(point.y / height * 100).toFixed(2)}%"></span></div>`).join('');
             }
