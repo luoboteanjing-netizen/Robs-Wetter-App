@@ -237,6 +237,13 @@
         .hourly-scroll { container-type: inline-size; overflow-x: auto; scrollbar-width: none; margin: 0 -10px 4px; border-radius: 12px; }
         .hourly-scroll::-webkit-scrollbar { display: none; }
         .hourly-track { width: calc(100cqi / 6 * var(--hours, 6)); }
+        /* 48h: Platz oben fuer Wochentag/Datum und Trennlinie bei 0 Uhr */
+        .hourly-track.has-day-markers { position: relative; padding-top: 20px; }
+        .day-marker { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid var(--text-muted); opacity: 0.9; pointer-events: none; }
+        .day-marker span {
+            position: absolute; top: 0; left: 0; padding-left: 8px; white-space: nowrap;
+            font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--accent-red);
+        }
         .hourly-items, .hourly-winds { display: flex; }
         .hourly-item, .hourly-wind {
             flex: 0 0 calc(100cqi / 6); width: calc(100cqi / 6); box-sizing: border-box;
@@ -292,6 +299,7 @@
             border-radius: 20px; padding: 16px 12px 14px;
         }
         .day-detail[hidden] { display: none !important; }
+        .week-detail { margin: 4px 0 10px; }
         .day-detail-title { color: var(--accent-red); font-weight: 800; letter-spacing: 0.4px; margin-bottom: 14px; text-transform: uppercase; }
         .day-parts { display: flex; gap: 4px; }
         .day-part { flex: 1; text-align: center; min-width: 0; }
@@ -808,6 +816,7 @@
         let searchTimeout = null;
         let favorites = JSON.parse(localStorage.getItem('panda_favs')) || [];
         let selectedDayIndex = null;
+        let selectedWeekIndex = null;
         let lastWeatherData = null;
 
         window.onload = () => {
@@ -1623,8 +1632,7 @@
             };
         }
 
-        function renderThreeDayDetail(index) {
-            const box = document.getElementById('three-day-detail');
+        function renderThreeDayDetail(index, box = document.getElementById('three-day-detail'), uid = 'day-hour', showTitle = true) {
             const data = lastWeatherData;
             if (!box || !data || !data.daily.time[index]) {
                 if (box) box.hidden = true;
@@ -1654,7 +1662,7 @@
             }
             const rain = daily.precipitation_probability_max?.[index];
             box.innerHTML = `
-                <div class="day-detail-title">${t('days')[date.getDay()]} ${getFormattedDate(date, 'day')}</div>
+                ${showTitle ? `<div class="day-detail-title">${t('days')[date.getDay()]} ${getFormattedDate(date, 'day')}</div>` : ''}
                 <div class="hourly-scroll">
                     <div class="hourly-track" style="--hours:${Math.max(slots.length, 6)}">
                         <div class="hourly-items">
@@ -1666,8 +1674,8 @@
                                 </div>
                             `).join('')}
                         </div>
-                        <svg id="day-hour-line" class="hourly-line" aria-hidden="true"></svg>
-                        <div class="hourly-dots" id="day-hour-dots"></div>
+                        <svg id="${uid}-line" class="hourly-line" aria-hidden="true"></svg>
+                        <div class="hourly-dots" id="${uid}-dots"></div>
                         <div class="hourly-winds">
                             ${slots.map(slot => `
                                 <div class="hourly-wind">
@@ -1681,7 +1689,7 @@
                 <div class="day-detail-foot">${t('sun_hours')} ${clockFromIso(daily.sunrise?.[index])}-${clockFromIso(daily.sunset?.[index])} · ${t('rain')} ${rain ?? '-'} %</div>
             `;
             box.hidden = false;
-            drawHourlyLine(slots.map(slot => slot.temp), 'day-hour-line', 'day-hour-dots');
+            drawHourlyLine(slots.map(slot => slot.temp), `${uid}-line`, `${uid}-dots`);
         }
 
         function nextDateKey(dateStr) {
@@ -1707,6 +1715,31 @@
                 item.classList.toggle('selected', Number(item.dataset.index) === index);
             });
             renderThreeDayDetail(index);
+        };
+
+        // 7 Tage: Tagesverlauf klappt direkt unter dem angetippten Tag auf
+        function openWeekDetail(index) {
+            const container = document.getElementById('week-container');
+            container.querySelectorAll('.week-detail').forEach(el => el.remove());
+            const row = container.querySelector(`.day-row[data-index="${index}"]`);
+            if (!row) return;
+            const box = document.createElement('div');
+            box.className = 'day-detail week-detail';
+            row.after(box);
+            renderThreeDayDetail(index, box, 'week-hour', false);
+        }
+
+        document.getElementById('week-container').onclick = (event) => {
+            const row = event.target.closest('.day-row');
+            if (!row) return;
+            const index = Number(row.dataset.index);
+            if (selectedWeekIndex === index) {
+                selectedWeekIndex = null;
+                document.querySelectorAll('#week-container .week-detail').forEach(el => el.remove());
+                return;
+            }
+            selectedWeekIndex = index;
+            openWeekDetail(index);
         };
 
         function hourlyCurve(points) {
@@ -1852,6 +1885,8 @@
             const hourlyTrack = document.getElementById('hourly-track');
             hourlyItems.innerHTML = '';
             hourlyWinds.innerHTML = '';
+            hourlyTrack.classList.add('has-day-markers');
+            hourlyTrack.querySelectorAll('.day-marker').forEach(el => el.remove());
             const hourlyTemps = [];
 
             for (let i = startIndex; i < startIndex + 48; i++) {
@@ -1871,6 +1906,16 @@
                 const windDir = hourly.wind_direction_10m[i];
                 
                 const arrowRotation = windDir + 90;
+
+                // Trennlinie + Wochentag/Datum bei 0 Uhr
+                if (hour === 0) {
+                    const markerDate = new Date(hourly.time[i].slice(0, 10) + 'T12:00:00');
+                    const marker = document.createElement('div');
+                    marker.className = 'day-marker';
+                    marker.style.left = `calc(100cqi / 6 * ${i - startIndex})`;
+                    marker.innerHTML = `<span>${t('days')[markerDate.getDay()]} ${getFormattedDate(markerDate, 'day')}</span>`;
+                    hourlyTrack.appendChild(marker);
+                }
 
                 hourlyTemps.push(temp);
                 hourlyItems.innerHTML += `
@@ -1932,7 +1977,7 @@
                 const barWidth = Math.max(5, (maxT - minT) * 3);
 
                 weekContainer.innerHTML += `
-                    <div class="day-row">
+                    <div class="day-row" data-index="${i}" style="cursor:pointer;">
                         <div class="day-name">
                             <strong>${dayLabel}</strong>
                             <span>${dateLabel}</span>
@@ -1949,6 +1994,9 @@
                     </div>
                 `;
             }
+
+            if (selectedWeekIndex != null && daily.time[selectedWeekIndex]) openWeekDetail(selectedWeekIndex);
+            else selectedWeekIndex = null;
 
             const longTermContainer = document.getElementById('longterm-container');
             longTermContainer.innerHTML = '';
