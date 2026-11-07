@@ -219,6 +219,7 @@
             letter-spacing: 0px; white-space: nowrap; transition: all 0.2s;
             flex: 1; text-align: center;
         }
+        .tab-btn[hidden] { display: none; }
         .tab-btn.active { background-color: var(--accent-red); border-color: var(--accent-red); color: white; }
 
         .card {
@@ -334,6 +335,16 @@
         .temp-bar { height: 4px; background-color: var(--border-color); border-radius: 2px; width: 100%; position: relative; }
         .temp-bar-fill { position: absolute; height: 100%; background: linear-gradient(90deg, var(--accent-blue), #ff9f0a, var(--accent-red)); border-radius: 2px; }
 
+        /* Mond */
+        .moon-row { display: grid; grid-template-columns: 1.3fr 52px 1fr 1fr; align-items: center; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
+        .moon-row:last-child { border-bottom: none; }
+        .moon-head { padding: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--text-muted); text-transform: uppercase; }
+        .moon-head .moon-time { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+        .moon-day strong { display: block; font-size: 16px; }
+        .moon-day span { font-size: 12px; color: var(--text-muted); }
+        .moon-icon { width: 40px; height: 40px; margin: 0 auto; }
+        .moon-icon svg { width: 100%; height: 100%; display: block; }
+        .moon-time { text-align: center; font-size: 16px; font-weight: 600; }
         .day-row-16 { display: flex; align-items: center; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid var(--border-color); }
         .day-info-16 { width: 120px; }
         .day-info-16 strong { font-size: 16px; display: block; }
@@ -506,10 +517,11 @@
 
         <div class="nav-tabs">
             <button class="tab-btn active" data-target="tab-48h" data-i18n="tab_48h">48 STD</button>
-            <button class="tab-btn" data-target="tab-3d" data-i18n="tab_3d">3 TAGE</button>
+            <button class="tab-btn" data-target="tab-3d" data-i18n="tab_3d" hidden>3 TAGE</button>
             <button class="tab-btn" data-target="tab-7d" data-i18n="tab_7d">7 TAGE</button>
             <button class="tab-btn" data-target="tab-16d" data-i18n="tab_16d">16 TAGE</button>
             <button class="tab-btn" data-target="tab-radar" data-i18n="tab_radar">RADAR</button>
+            <button class="tab-btn" data-target="tab-moon" data-i18n="tab_moon">MOND</button>
         </div>
 
         <div class="card active" id="tab-48h">
@@ -557,6 +569,14 @@
                 </svg>
             </div>
             <div class="day-list" id="longterm-container"></div>
+        </div>
+
+        <div class="card" id="tab-moon">
+            <div class="graph-header">
+                <span data-i18n="moon_title">MONDPHASEN</span>
+                <span id="moon-cycle-hint"></span>
+            </div>
+            <div class="day-list" id="moon-container"></div>
         </div>
 
         <div class="card" id="tab-radar">
@@ -703,7 +723,7 @@
                 log_day: "1 TAG", log_week: "1 WOCHE", log_month: "1 MONAT", log_year: "1 JAHR",
                 log_temp: "TEMP", log_sun: "SONNE", log_wind: "WIND", log_pressure: "DRUCK", log_rain: "REGEN",
                 feels_like: "GEFÜHLT", wind: "WIND", pressure: "Luftdruck:", now: "JETZT", tap_for_details: "TIPPEN FÜR VERLAUF",
-                tab_48h: "48 STD", tab_3d: "3 TAGE", tab_7d: "7 TAGE", tab_16d: "16 TAGE", tab_radar: "RADAR",
+                tab_48h: "48 STD", tab_3d: "3 TAGE", tab_7d: "7 TAGE", tab_16d: "16 TAGE", tab_radar: "RADAR", tab_moon: "MOND", moon_title: "MONDPHASEN", moon_rise: "AUFGANG", moon_set: "UNTERGANG",
                 hourly: "STUNDENVERLAUF", until_16: "BIS 16 TAGE", unsure: "UNSICHER", radar_dwd: "RADAR (DWD)",
                 weather_data_by: "Wetterdaten von",
                 today: "Heute", tomorrow: "Morgen", day: "Tag", rain: "Regen",
@@ -730,7 +750,7 @@
                 log_day: "1 DAY", log_week: "1 WEEK", log_month: "1 MONTH", log_year: "1 YEAR",
                 log_temp: "TEMP", log_sun: "SUN", log_wind: "WIND", log_pressure: "PRESSURE", log_rain: "RAIN",
                 feels_like: "FEELS LIKE", wind: "WIND", pressure: "Pressure:", now: "NOW", tap_for_details: "TAP FOR DETAILS",
-                tab_48h: "48 HRS", tab_3d: "3 DAYS", tab_7d: "7 DAYS", tab_16d: "16 DAYS", tab_radar: "RADAR",
+                tab_48h: "48 HRS", tab_3d: "3 DAYS", tab_7d: "7 DAYS", tab_16d: "16 DAYS", tab_radar: "RADAR", tab_moon: "MOON", moon_title: "MOON PHASES", moon_rise: "MOONRISE", moon_set: "MOONSET",
                 hourly: "HOURLY FORECAST", until_16: "UP TO 16 DAYS", unsure: "UNCERTAIN", radar_dwd: "RADAR (DWD)",
                 weather_data_by: "Weather data by",
                 today: "Today", tomorrow: "Tomorrow", day: "Day", rain: "Rain",
@@ -757,7 +777,7 @@
                 log_day: "1天", log_week: "1周", log_month: "1月", log_year: "1年",
                 log_temp: "温度", log_sun: "日照", log_wind: "风", log_pressure: "气压", log_rain: "降水",
                 feels_like: "体感温度", wind: "风速", pressure: "气压:", now: "现在", tap_for_details: "点击查看详情",
-                tab_48h: "48小时", tab_3d: "3天", tab_7d: "7天", tab_16d: "16天", tab_radar: "雷达",
+                tab_48h: "48小时", tab_3d: "3天", tab_7d: "7天", tab_16d: "16天", tab_radar: "雷达", tab_moon: "月相", moon_title: "月相", moon_rise: "月出", moon_set: "月落",
                 hourly: "每小时预报", until_16: "16天预报", unsure: "不确定", radar_dwd: "雷达 (DWD)",
                 weather_data_by: "天气数据由",
                 today: "今天", tomorrow: "明天", day: "天", rain: "雨",
@@ -1816,6 +1836,164 @@
             }
         }
 
+        // --- MOND: Phasen sowie Auf-/Untergang (Naeherungsformeln, ohne externe Daten) ---
+        const MOON_RAD = Math.PI / 180;
+        const moonSin = (deg) => Math.sin(deg * MOON_RAD);
+        const moonCos = (deg) => Math.cos(deg * MOON_RAD);
+        function moonDays(ms) { return ms / 86400000 - 0.5 + 2440588 - 2451545; }
+        function moonArgs(d) {
+            return {
+                L: 218.3164 + 13.176396 * d,   // mittlere Laenge
+                D: 297.8502 + 12.190749 * d,   // mittlere Elongation
+                Ms: 357.5291 + 0.985600 * d,   // Sonnenanomalie
+                M: 134.9634 + 13.064993 * d,   // Mondanomalie
+                F: 93.2721 + 13.229350 * d     // Argument der Breite
+            };
+        }
+        function moonLonDeg(d) {
+            const a = moonArgs(d);
+            return a.L + 6.288774 * moonSin(a.M) + 1.274027 * moonSin(2 * a.D - a.M) + 0.658314 * moonSin(2 * a.D)
+                + 0.213618 * moonSin(2 * a.M) - 0.185116 * moonSin(a.Ms) - 0.114332 * moonSin(2 * a.F)
+                + 0.058793 * moonSin(2 * a.D - 2 * a.M) + 0.057066 * moonSin(2 * a.D - a.Ms - a.M)
+                + 0.053322 * moonSin(2 * a.D + a.M) + 0.045758 * moonSin(2 * a.D - a.Ms);
+        }
+        function moonLatDeg(d) {
+            const a = moonArgs(d);
+            return 5.128122 * moonSin(a.F) + 0.280602 * moonSin(a.M + a.F) + 0.277693 * moonSin(a.M - a.F) + 0.173238 * moonSin(2 * a.D - a.F);
+        }
+        function moonDistKm(d) {
+            const a = moonArgs(d);
+            return 385000.56 - 20905.355 * moonCos(a.M) - 3699.111 * moonCos(2 * a.D - a.M) - 2955.968 * moonCos(2 * a.D) - 569.925 * moonCos(2 * a.M);
+        }
+        function sunLonDeg(d) {
+            const M = 357.5291 + 0.98560028 * d;
+            return 280.466 + 0.9856474 * d + 1.915 * moonSin(M) + 0.020 * moonSin(2 * M);
+        }
+        function moonElong(ms) {
+            const d = moonDays(ms);
+            return (((moonLonDeg(d) - sunLonDeg(d)) % 360) + 360) % 360;
+        }
+        function moonSigned(ms, target) { return ((moonElong(ms) - target + 540) % 360) - 180; }
+
+        // naechster Zeitpunkt nach fromMs, an dem die Elongation target Grad erreicht
+        function moonNextCrossing(fromMs, target) {
+            const step = 3 * 3600000;
+            for (let i = 0; i < 300; i++) {
+                const a = fromMs + i * step, b = a + step;
+                const sa = moonSigned(a, target), sb = moonSigned(b, target);
+                if (sa < 0 && sb >= 0 && sb < 90) {
+                    let lo = a, hi = b;
+                    for (let k = 0; k < 25; k++) {
+                        const mid = (lo + hi) / 2;
+                        if (moonSigned(mid, target) < 0) lo = mid; else hi = mid;
+                    }
+                    return hi;
+                }
+            }
+            return null;
+        }
+
+        // Die 8 Phasen des naechsten Zyklus, beginnend mit dem naechsten Neumond:
+        // Neumond, zunehmende Sichel, 1. Viertel, zunehmender Mond, Vollmond, abnehmender Mond, letztes Viertel, abnehmende Sichel
+        function moonCycleEvents(nowMs) {
+            const t0 = moonNextCrossing(nowMs - 12 * 3600000, 0);
+            const events = [{ k: 0, ms: t0 }];
+            for (let k = 1; k < 8; k++) events.push({ k, ms: moonNextCrossing(t0, 45 * k) });
+            return events;
+        }
+
+        function tzOffsetMs(ms, tz) {
+            const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }).formatToParts(new Date(ms));
+            const get = (type) => Number(parts.find(p => p.type === type).value);
+            const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+            return asUtc - Math.floor(ms / 1000) * 1000;
+        }
+        function localDateParts(ms, tz) {
+            const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(new Date(ms));
+            const get = (type) => Number(parts.find(p => p.type === type).value);
+            return { y: get('year'), m: get('month'), d: get('day') };
+        }
+        function localMidnightMs(y, m, d, tz) {
+            const base = Date.UTC(y, m - 1, d);
+            let guess = base - tzOffsetMs(base, tz);
+            guess = base - tzOffsetMs(guess, tz);
+            return guess;
+        }
+
+        // Mondauf- und -untergang fuer einen lokalen Tag (Abtastung alle 5 Minuten)
+        function moonRiseSet(startMs, lat, lon) {
+            const phi = lat * MOON_RAD, lw = -lon * MOON_RAD, eps = 23.4397 * MOON_RAD;
+            const altMinusHorizon = (ms) => {
+                const d = moonDays(ms);
+                const l = moonLonDeg(d) * MOON_RAD, b = moonLatDeg(d) * MOON_RAD;
+                const ra = Math.atan2(Math.sin(l) * Math.cos(eps) - Math.tan(b) * Math.sin(eps), Math.cos(l));
+                const dec = Math.asin(Math.sin(b) * Math.cos(eps) + Math.cos(b) * Math.sin(eps) * Math.sin(l));
+                const H = MOON_RAD * (280.16 + 360.9856235 * d) - lw - ra;
+                const alt = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H)) / MOON_RAD;
+                const parallax = Math.asin(6378.14 / moonDistKm(d)) / MOON_RAD;
+                return alt - (0.7275 * parallax - 0.5667);
+            };
+            const step = 5 * 60000;
+            let rise = null, set = null;
+            let prev = altMinusHorizon(startMs);
+            for (let t = startMs + step; t <= startMs + 24 * 3600000; t += step) {
+                const cur = altMinusHorizon(t);
+                if (prev < 0 && cur >= 0 && rise === null) rise = t - step + step * (-prev) / (cur - prev);
+                if (prev >= 0 && cur < 0 && set === null) set = t - step + step * prev / (prev - cur);
+                prev = cur;
+            }
+            return { rise, set };
+        }
+
+        // Mondscheibe als SVG; k = 0..7 (0 Neumond, 4 Vollmond), flip = Suedhalbkugel
+        function moonPhaseSvg(k, flip) {
+            const R = 16;
+            const f = (1 - Math.cos(k * 45 * MOON_RAD)) / 2;
+            const rx = Math.abs(1 - 2 * f) * R;
+            let lit = '';
+            if (k === 4) lit = `<circle cx="18" cy="18" r="${R}" fill="#f1ede4"/>`;
+            else if (k !== 0) lit = `<path d="M18 2 A${R} ${R} 0 0 1 18 34 A${rx.toFixed(2)} ${R} 0 0 ${f > 0.5 ? 1 : 0} 18 2 Z" fill="#f1ede4"/>`;
+            const mirror = (k > 4) !== flip;
+            return `<svg viewBox="0 0 36 36" aria-hidden="true">
+                <circle cx="18" cy="18" r="${R}" fill="#3a3d45" stroke="#6b6f78" stroke-width="1"/>
+                <g ${mirror ? 'transform="translate(36 0) scale(-1 1)"' : ''}>${lit}</g>
+            </svg>`;
+        }
+
+        function renderMoonList(data) {
+            const box = document.getElementById('moon-container');
+            if (!box) return;
+            try {
+                const lat = data.latitude ?? currentLat;
+                const lon = data.longitude ?? currentLon;
+                const tz = data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const timeFmt = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+                const showTime = (ms) => ms == null ? '–' : timeFmt.format(new Date(ms + 30000));
+                const events = moonCycleEvents(Date.now());
+                const rows = events.map(event => {
+                    const local = localDateParts(event.ms, tz);
+                    const date = new Date(local.y, local.m - 1, local.d, 12);
+                    const times = moonRiseSet(localMidnightMs(local.y, local.m, local.d, tz), lat, lon);
+                    return `
+                        <div class="moon-row">
+                            <div class="moon-day"><strong>${t('days')[date.getDay()]}</strong><span>${getFormattedDate(date, 'day')}</span></div>
+                            <div class="moon-icon">${moonPhaseSvg(event.k, lat < 0)}</div>
+                            <div class="moon-time">${showTime(times.rise)}</div>
+                            <div class="moon-time">${showTime(times.set)}</div>
+                        </div>`;
+                });
+                box.innerHTML = `
+                    <div class="moon-row moon-head">
+                        <div></div><div></div>
+                        <div class="moon-time">${t('moon_rise')}</div>
+                        <div class="moon-time">${t('moon_set')}</div>
+                    </div>
+                    ${rows.join('')}`;
+            } catch (e) {
+                box.innerHTML = '';
+            }
+        }
+
         function updateUI(data, name, region, timestamp) {
             const current = data.current;
             const daily = data.daily;
@@ -2032,6 +2210,8 @@
                     </div>
                 `;
             }
+
+            renderMoonList(data);
         }
 
         // --- 7. TABS & MAP ---
