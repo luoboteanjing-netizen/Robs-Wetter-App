@@ -336,8 +336,10 @@
         .temp-bar-fill { position: absolute; height: 100%; background: linear-gradient(90deg, var(--accent-blue), #ff9f0a, var(--accent-red)); border-radius: 2px; }
 
         /* Mond */
-        .moon-row { display: grid; grid-template-columns: 1.3fr 52px 1fr 1fr; align-items: center; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
+        .moon-row { display: grid; grid-template-columns: 1.7fr 48px 1fr 1fr; align-items: center; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
         .moon-row:last-child { border-bottom: none; }
+        .moon-today { background: var(--bar-bg); border-radius: 12px; padding: 12px 8px; margin: 4px -8px; border-bottom: none; }
+        .moon-today .moon-day strong { color: var(--accent-red); }
         .moon-head { padding: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--text-muted); text-transform: uppercase; }
         .moon-head .moon-time { font-size: 11px; font-weight: 600; color: var(--text-muted); }
         .moon-day strong { display: block; font-size: 16px; }
@@ -723,7 +725,7 @@
                 log_day: "1 TAG", log_week: "1 WOCHE", log_month: "1 MONAT", log_year: "1 JAHR",
                 log_temp: "TEMP", log_sun: "SONNE", log_wind: "WIND", log_pressure: "DRUCK", log_rain: "REGEN",
                 feels_like: "GEFÜHLT", wind: "WIND", pressure: "Luftdruck:", now: "JETZT", tap_for_details: "TIPPEN FÜR VERLAUF",
-                tab_48h: "48 STD", tab_3d: "3 TAGE", tab_7d: "7 TAGE", tab_16d: "16 TAGE", tab_radar: "RADAR", tab_moon: "MOND", moon_title: "MONDPHASEN", moon_rise: "AUFGANG", moon_set: "UNTERGANG",
+                tab_48h: "48 STD", tab_3d: "3 TAGE", tab_7d: "7 TAGE", tab_16d: "16 TAGE", tab_radar: "RADAR", tab_moon: "MOND", moon_title: "MONDPHASEN", moon_rise: "AUFGANG", moon_set: "UNTERGANG", moon_phases: ["Neumond", "Zunehmende Sichel", "Erstes Viertel", "Zunehmender Mond", "Vollmond", "Abnehmender Mond", "Letztes Viertel", "Abnehmende Sichel"],
                 hourly: "STUNDENVERLAUF", until_16: "BIS 16 TAGE", unsure: "UNSICHER", radar_dwd: "RADAR (DWD)",
                 weather_data_by: "Wetterdaten von",
                 today: "Heute", tomorrow: "Morgen", day: "Tag", rain: "Regen",
@@ -750,7 +752,7 @@
                 log_day: "1 DAY", log_week: "1 WEEK", log_month: "1 MONTH", log_year: "1 YEAR",
                 log_temp: "TEMP", log_sun: "SUN", log_wind: "WIND", log_pressure: "PRESSURE", log_rain: "RAIN",
                 feels_like: "FEELS LIKE", wind: "WIND", pressure: "Pressure:", now: "NOW", tap_for_details: "TAP FOR DETAILS",
-                tab_48h: "48 HRS", tab_3d: "3 DAYS", tab_7d: "7 DAYS", tab_16d: "16 DAYS", tab_radar: "RADAR", tab_moon: "MOON", moon_title: "MOON PHASES", moon_rise: "MOONRISE", moon_set: "MOONSET",
+                tab_48h: "48 HRS", tab_3d: "3 DAYS", tab_7d: "7 DAYS", tab_16d: "16 DAYS", tab_radar: "RADAR", tab_moon: "MOON", moon_title: "MOON PHASES", moon_rise: "MOONRISE", moon_set: "MOONSET", moon_phases: ["New moon", "Waxing crescent", "First quarter", "Waxing gibbous", "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"],
                 hourly: "HOURLY FORECAST", until_16: "UP TO 16 DAYS", unsure: "UNCERTAIN", radar_dwd: "RADAR (DWD)",
                 weather_data_by: "Weather data by",
                 today: "Today", tomorrow: "Tomorrow", day: "Day", rain: "Rain",
@@ -777,7 +779,7 @@
                 log_day: "1天", log_week: "1周", log_month: "1月", log_year: "1年",
                 log_temp: "温度", log_sun: "日照", log_wind: "风", log_pressure: "气压", log_rain: "降水",
                 feels_like: "体感温度", wind: "风速", pressure: "气压:", now: "现在", tap_for_details: "点击查看详情",
-                tab_48h: "48小时", tab_3d: "3天", tab_7d: "7天", tab_16d: "16天", tab_radar: "雷达", tab_moon: "月相", moon_title: "月相", moon_rise: "月出", moon_set: "月落",
+                tab_48h: "48小时", tab_3d: "3天", tab_7d: "7天", tab_16d: "16天", tab_radar: "雷达", tab_moon: "月相", moon_title: "月相", moon_rise: "月出", moon_set: "月落", moon_phases: ["新月", "蛾眉月", "上弦月", "盈凸月", "满月", "亏凸月", "下弦月", "残月"],
                 hourly: "每小时预报", until_16: "16天预报", unsure: "不确定", radar_dwd: "雷达 (DWD)",
                 weather_data_by: "天气数据由",
                 today: "今天", tomorrow: "明天", day: "天", rain: "雨",
@@ -1893,13 +1895,22 @@
             return null;
         }
 
-        // Die 8 Phasen des naechsten Zyklus, beginnend mit dem naechsten Neumond:
-        // Neumond, zunehmende Sichel, 1. Viertel, zunehmender Mond, Vollmond, abnehmender Mond, letztes Viertel, abnehmende Sichel
-        function moonCycleEvents(nowMs) {
-            const t0 = moonNextCrossing(nowMs - 12 * 3600000, 0);
-            const events = [{ k: 0, ms: t0 }];
-            for (let k = 1; k < 8; k++) events.push({ k, ms: moonNextCrossing(t0, 45 * k) });
-            return events;
+        // Phasenereignisse (alle 45 Grad Elongation): 0 Neumond, 1 zunehmende Sichel, 2 erstes Viertel, 3 zunehmender Mond,
+        // 4 Vollmond, 5 abnehmender Mond, 6 letztes Viertel, 7 abnehmende Sichel.
+        // Liefert die letzten 4 vergangenen und die naechsten 4 kommenden Ereignisse.
+        function moonEventsAround(nowMs) {
+            let ms = moonNextCrossing(nowMs - 50 * 86400000, 0);
+            let k = 0;
+            const all = [{ k, ms }];
+            while (ms <= nowMs + 40 * 86400000 && all.length < 60) {
+                k = (k + 1) % 8;
+                ms = moonNextCrossing(ms + 3600000, 45 * k);
+                if (ms == null) break;
+                all.push({ k, ms });
+            }
+            const past = all.filter(e => e.ms <= nowMs).slice(-4);
+            const future = all.filter(e => e.ms > nowMs).slice(0, 4);
+            return { past, future };
         }
 
         function tzOffsetMs(ms, tz) {
@@ -1945,15 +1956,15 @@
             return { rise, set };
         }
 
-        // Mondscheibe als SVG; k = 0..7 (0 Neumond, 4 Vollmond), flip = Suedhalbkugel
-        function moonPhaseSvg(k, flip) {
+        // Mondscheibe als SVG; angle = Elongation in Grad (0 Neumond, 180 Vollmond), flip = Suedhalbkugel
+        function moonPhaseSvg(angle, flip) {
             const R = 16;
-            const f = (1 - Math.cos(k * 45 * MOON_RAD)) / 2;
+            const f = (1 - Math.cos(angle * MOON_RAD)) / 2;
             const rx = Math.abs(1 - 2 * f) * R;
             let lit = '';
-            if (k === 4) lit = `<circle cx="18" cy="18" r="${R}" fill="#f1ede4"/>`;
-            else if (k !== 0) lit = `<path d="M18 2 A${R} ${R} 0 0 1 18 34 A${rx.toFixed(2)} ${R} 0 0 ${f > 0.5 ? 1 : 0} 18 2 Z" fill="#f1ede4"/>`;
-            const mirror = (k > 4) !== flip;
+            if (f > 0.995) lit = `<circle cx="18" cy="18" r="${R}" fill="#f1ede4"/>`;
+            else if (f > 0.005) lit = `<path d="M18 2 A${R} ${R} 0 0 1 18 34 A${rx.toFixed(2)} ${R} 0 0 ${f > 0.5 ? 1 : 0} 18 2 Z" fill="#f1ede4"/>`;
+            const mirror = (angle > 180) !== flip;
             return `<svg viewBox="0 0 36 36" aria-hidden="true">
                 <circle cx="18" cy="18" r="${R}" fill="#3a3d45" stroke="#6b6f78" stroke-width="1"/>
                 <g ${mirror ? 'transform="translate(36 0) scale(-1 1)"' : ''}>${lit}</g>
@@ -2000,36 +2011,46 @@
                 const apiKey = `${Number(lat).toFixed(2)},${Number(lon).toFixed(2)}`;
                 const apiDays = (moonApi && moonApi.key === apiKey) ? moonApi.days : null;
                 ensureMoonApi(lat, lon);
-                const events = moonCycleEvents(Date.now());
-                const rows = events.map(event => {
-                    const local = localDateParts(event.ms, tz);
-                    const date = new Date(local.y, local.m - 1, local.d, 12);
+
+                // Auf-/Untergang fuer einen lokalen Tag: Open-Meteo, sonst eigene Berechnung
+                const timesFor = (local) => {
                     const dayKey = `${local.y}-${String(local.m).padStart(2, '0')}-${String(local.d).padStart(2, '0')}`;
                     const apiDay = apiDays ? apiDays[dayKey] : null;
-                    let riseText, setText;
-                    if (apiDay) {
-                        riseText = showIso(apiDay.rise);
-                        setText = showIso(apiDay.set);
-                    } else {
-                        const times = moonRiseSet(localMidnightMs(local.y, local.m, local.d, tz), lat, lon);
-                        riseText = showTime(times.rise);
-                        setText = showTime(times.set);
-                    }
-                    return `
-                        <div class="moon-row">
-                            <div class="moon-day"><strong>${t('days')[date.getDay()]}</strong><span>${getFormattedDate(date, 'day')}</span></div>
-                            <div class="moon-icon">${moonPhaseSvg(event.k, lat < 0)}</div>
-                            <div class="moon-time">${riseText}</div>
-                            <div class="moon-time">${setText}</div>
-                        </div>`;
-                });
+                    if (apiDay) return { rise: showIso(apiDay.rise), set: showIso(apiDay.set) };
+                    const calc = moonRiseSet(localMidnightMs(local.y, local.m, local.d, tz), lat, lon);
+                    return { rise: showTime(calc.rise), set: showTime(calc.set) };
+                };
+                const rowHtml = (labelHtml, angle, times, extraClass = '') => `
+                    <div class="moon-row ${extraClass}">
+                        <div class="moon-day">${labelHtml}</div>
+                        <div class="moon-icon">${moonPhaseSvg(angle, lat < 0)}</div>
+                        <div class="moon-time">${times.rise}</div>
+                        <div class="moon-time">${times.set}</div>
+                    </div>`;
+                const eventRow = (event) => {
+                    const local = localDateParts(event.ms, tz);
+                    const date = new Date(local.y, local.m - 1, local.d, 12);
+                    return rowHtml(`<strong>${t('days')[date.getDay()]}</strong><span>${getFormattedDate(date, 'day')}</span>`, event.k * 45, timesFor(local));
+                };
+
+                const now = Date.now();
+                const { past, future } = moonEventsAround(now);
+                const elong = moonElong(now);
+                const names = t('moon_phases');
+                // Name = zuletzt erreichte Phase (z. B. zwei Tage vor Neumond noch "Abnehmende Sichel")
+                const lastPast = past[past.length - 1];
+                const currentName = (Array.isArray(names) && lastPast) ? names[lastPast.k] : '';
+                const todayRow = rowHtml(`<strong>${t('today')}</strong><span>${currentName}</span>`, elong, timesFor(localDateParts(now, tz)), 'moon-today');
+
                 box.innerHTML = `
                     <div class="moon-row moon-head">
                         <div></div><div></div>
                         <div class="moon-time">${t('moon_rise')}</div>
                         <div class="moon-time">${t('moon_set')}</div>
                     </div>
-                    ${rows.join('')}`;
+                    ${past.map(eventRow).join('')}
+                    ${todayRow}
+                    ${future.map(eventRow).join('')}`;
             } catch (e) {
                 box.innerHTML = '';
             }
