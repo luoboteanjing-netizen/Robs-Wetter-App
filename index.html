@@ -207,6 +207,8 @@
             letter-spacing: 1px; margin: 0 20px 20px 20px;
             cursor: pointer; background: var(--card-bg);
         }
+        #status-sub { display: block; margin-top: 2px; font-size: 11px; font-weight: 500; letter-spacing: 0.5px; color: var(--text-muted); }
+        #status-sub:empty { display: none; }
         .status-dot { width: 8px; height: 8px; background-color: #34c759; border-radius: 50%; }
         .status-dot.loading { background-color: #ffcc00; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
@@ -530,7 +532,7 @@
 
         <div class="status-pill" id="refresh-btn">
             <div class="status-dot" id="status-dot"></div>
-            <span id="status-time">LADE DATEN...</span>
+            <span><span id="status-time">LADE DATEN...</span><span id="status-sub"></span></span>
         </div>
 
         <div class="nav-tabs">
@@ -835,14 +837,16 @@
             });
 
             const cachedData = localStorage.getItem('panda_last_weather');
+            let cachedSub = '';
             if(cachedData) {
                 try {
                     const parsed = JSON.parse(cachedData);
                     updateUI(parsed.data, parsed.city, parsed.region, parsed.timestamp);
+                    cachedSub = stationLabel(parsed.data);
                 } catch(e) {}
             }
             updateFavList();
-            setStatus(t('stand') + ' ' + formatTime(new Date()), false);
+            setStatus(t('stand') + ' ' + formatTime(new Date()), false, cachedSub);
         }
 
         // --- 2. STATE ---
@@ -875,8 +879,9 @@
             checkIfCurrentIsFav();
         };
 
-        function setStatus(text, isLoading) {
+        function setStatus(text, isLoading, sub = '') {
             document.getElementById('status-time').innerText = text;
+            document.getElementById('status-sub').textContent = sub;
             const dot = document.getElementById('status-dot');
             if(isLoading) dot.classList.add('loading');
             else dot.classList.remove('loading');
@@ -1067,9 +1072,32 @@
         };
 
         // Verlauf wird nur fuer Orte gespeichert, die als Favorit markiert sind
+        function distanceKm(lat1, lon1, lat2, lon2) {
+            const rad = Math.PI / 180;
+            const a = Math.sin((lat2 - lat1) * rad / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin((lon2 - lon1) * rad / 2) ** 2;
+            return 6371 * 2 * Math.asin(Math.sqrt(a));
+        }
+
+        // Gleicher Ort trotz leicht abweichender Koordinaten (GPS, Suche, Favorit)
+        const SAME_PLACE_KM = 3;
         function isFavoritePlace(lat, lon, name) {
-            const key = logStorageKey(lat, lon);
-            return favorites.some(f => (f.lat != null && f.lon != null && logStorageKey(f.lat, f.lon) === key) || f.name === name);
+            return favorites.some(f => (f.lat != null && f.lon != null && distanceKm(lat, lon, f.lat, f.lon) <= SAME_PLACE_KM)
+                || (f.name && name && f.name.toLowerCase() === name.toLowerCase()));
+        }
+
+        // Dateiname (Key) fuer einen Ort: vorhandene Datei in der Naehe wiederverwenden, sonst neue anlegen
+        function resolveLogKey(lat, lon, name) {
+            const index = readLogIndex().filter(item => item.lat != null && item.lon != null);
+            let best = null, bestDist = Infinity;
+            for (const item of index) {
+                const d = distanceKm(lat, lon, item.lat, item.lon);
+                if (d < bestDist) { best = item; bestDist = d; }
+            }
+            if (best && bestDist <= SAME_PLACE_KM) return best.key;
+            const lower = (name || '').toLowerCase();
+            const sameName = lower && index.find(item => (item.name || '').toLowerCase() === lower && distanceKm(lat, lon, item.lat, item.lon) <= 25);
+            if (sameName) return sameName.key;
+            return logStorageKey(lat, lon);
         }
 
         function formatBytes(bytes) {
@@ -1126,15 +1154,13 @@
         function appendWeatherLog(lat, lon, name, data, timestamp) {
             if (!isFavoritePlace(lat, lon, name)) return;
             try {
-                const key = logStorageKey(lat, lon);
+                const key = resolveLogKey(lat, lon, name);
                 const store = readLog(key) || { name, lat, lon, entries: [] };
                 const last = store.entries[store.entries.length - 1];
                 if (last && timestamp - last.t < 60 * 1000) return;
                 const nowKey = (data.current?.time || '').slice(0, 13);
                 const round1 = (value) => Math.round(Number(value) * 10) / 10;
                 store.name = name;
-                store.lat = lat;
-                store.lon = lon;
                 store.entries.push({
                     t: timestamp,
                     temp: round1(data.current.temperature_2m),
@@ -1146,7 +1172,7 @@
                 if (store.entries.length > 8000) store.entries = store.entries.slice(-8000);
                 localStorage.setItem(key, JSON.stringify(store));
                 const index = readLogIndex().filter(item => item.key !== key);
-                index.push({ key, name, lat, lon });
+                index.push({ key, name, lat: store.lat, lon: store.lon });
                 localStorage.setItem('panda_log_index', JSON.stringify(index));
             } catch (err) {
                 console.error('Verlauf nicht gespeichert', err);
@@ -1161,7 +1187,7 @@
                 if (!response.ok) return;
                 const data = await response.json();
                 const offset = data.utc_offset_seconds || 0;
-                const key = logStorageKey(lat, lon);
+                const key = resolveLogKey(lat, lon, name);
                 const store = readLog(key) || { name, lat, lon, entries: [] };
                 const covered = new Set(store.entries.map(entry => new Date(entry.t + offset * 1000).toISOString().slice(0, 10)));
                 const today = data.daily.time[data.daily.time.length - 1];
@@ -1183,13 +1209,11 @@
                 });
                 if (!added) return;
                 store.name = name;
-                store.lat = lat;
-                store.lon = lon;
                 store.entries.sort((a, b) => a.t - b.t);
                 if (store.entries.length > 8000) store.entries = store.entries.slice(-8000);
                 localStorage.setItem(key, JSON.stringify(store));
                 const index = readLogIndex().filter(item => item.key !== key);
-                index.push({ key, name, lat, lon });
+                index.push({ key, name, lat: store.lat, lon: store.lon });
                 localStorage.setItem('panda_log_index', JSON.stringify(index));
                 if (document.getElementById('page-log')?.classList.contains('active')) renderLogPage();
             } catch (err) {
@@ -1416,7 +1440,7 @@
             const index = readLogIndex();
             const placeBtn = document.getElementById('log-place-btn');
             const placeList = document.getElementById('log-place-list');
-            const currentKey = logStorageKey(currentLat, currentLon);
+            const currentKey = resolveLogKey(currentLat, currentLon, currentCityName);
             if (!logPlaceKey) logPlaceKey = currentKey;
             if (!index.some(item => item.key === logPlaceKey)) logPlaceKey = index[0]?.key || currentKey;
             const placeItems = index.map(item => ({ ...item, size: logSizeBytes(item.key) }));
@@ -1464,7 +1488,7 @@
         function openLogPage() {
             openPage('page-log');
             logPlaceOpen = false;
-            logPlaceKey = logStorageKey(currentLat, currentLon);
+            logPlaceKey = resolveLogKey(currentLat, currentLon, currentCityName);
             renderLogPage();
         }
 
@@ -1593,11 +1617,12 @@
             }
         }
 
-        function stationNote(data) {
-            if (!data.station || !data.station.name) return '';
-            const name = data.station.name.length > 22 ? data.station.name.slice(0, 21) + '…' : data.station.name;
-            const dist = data.station.distanceKm != null ? ` ${Math.round(data.station.distanceKm)} km` : '';
-            return ` · ${name}${dist}`;
+        // zweite Statuszeile: DWD-Messpunkt (Station, von der die Temperatur stammt)
+        function stationLabel(data) {
+            if (!data || !data.station || !data.station.name) return '';
+            const name = data.station.name.length > 26 ? data.station.name.slice(0, 25) + '…' : data.station.name;
+            const dist = data.station.distanceKm != null ? ` · ${Math.round(data.station.distanceKm)} km` : '';
+            return `DWD: ${name}${dist}`;
         }
 
         async function fetchWeather(lat, lon, name, region) {
@@ -1616,7 +1641,7 @@
                 
                 updateUI(data, name, region, timestamp);
                 appendWeatherLog(lat, lon, name, data, timestamp);
-                setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}${stationNote(data)}`, false);
+                setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, stationLabel(data));
                 // Verlauf (60 Tage) erst im Hintergrund nachladen, nachdem die Hauptansicht steht
                 setTimeout(() => backfillWeatherLog(lat, lon, name), 1500);
             } catch (error) {
