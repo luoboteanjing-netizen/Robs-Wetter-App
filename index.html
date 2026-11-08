@@ -1518,37 +1518,54 @@
         const FORECAST_MODELS = '';
 
         // Messwerte der naechsten DWD-Station (Bright Sky). Nur Deutschland, Rueckfall: Open-Meteo-Modellwerte.
-        const STATION_MAX_DIST_M = 30000;
+        // Optional: feste DWD-Stationsnummer erzwingen (5 Stellen, z. B. '01234'). Leer = naechste Station per Koordinaten.
+        const STATION_ID = '';
+        const STATION_MAX_DIST_M = 50000;                 // Suchradius in der Anfrage
+        const STATION_FIELD_MAX_KM = { local: 25, pressure: 50 }; // pro Wert: Temperatur/Wind/Feuchte lokal, Luftdruck grossraeumig
         const STATION_MAX_AGE_MS = 2 * 3600000;
         async function fetchStationObservation(lat, lon) {
-            if (lat < 47 || lat > 55.2 || lon < 5.5 || lon > 15.5) return null;
+            if (!STATION_ID && (lat < 47 || lat > 55.2 || lon < 5.5 || lon > 15.5)) return null;
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 4000);
             try {
-                const res = await fetch(`https://api.brightsky.dev/current_weather?lat=${lat}&lon=${lon}&max_dist=${STATION_MAX_DIST_M}&units=dwd`, { signal: controller.signal });
+                const query = STATION_ID
+                    ? `dwd_station_id=${encodeURIComponent(STATION_ID)}`
+                    : `lat=${lat}&lon=${lon}&max_dist=${STATION_MAX_DIST_M}`;
+                const res = await fetch(`https://api.brightsky.dev/current_weather?${query}&units=dwd`, { signal: controller.signal });
                 if (!res.ok) return null;
                 const json = await res.json();
                 const w = json.weather;
                 if (!w) return null;
-                const src = (json.sources || []).find(item => item.id === w.source_id) || (json.sources || [])[0] || {};
+                const sources = json.sources || [];
+                const fallbackIds = w.fallback_source_ids || {};
                 if (!(Date.now() - Date.parse(w.timestamp) < STATION_MAX_AGE_MS)) return null;
-                const pick = (keys, min, max) => {
+                // Bright Sky fuellt fehlende Werte der naechsten Station aus weiter entfernten Stationen auf.
+                // Deshalb merken wir uns pro Wert die Station, die ihn tatsaechlich geliefert hat.
+                const pick = (keys, min, max, maxKm) => {
                     for (const key of keys) {
                         const value = w[key];
                         if (value == null || Number.isNaN(Number(value))) continue;
-                        if (Number(value) >= min && Number(value) <= max) return Number(value);
+                        if (Number(value) < min || Number(value) > max) continue;
+                        const sourceId = fallbackIds[key] ?? w.source_id;
+                        const source = sources.find(item => item.id === sourceId) || null;
+                        // Station zu weit weg fuer diesen Wert -> Open-Meteo-Modellwert behalten
+                        if (source && source.distance != null && source.distance / 1000 > maxKm) continue;
+                        return { value: Number(value), source };
                     }
-                    return null;
+                    return { value: null, source: null };
                 };
+                const temp = pick(['temperature'], -60, 60, STATION_FIELD_MAX_KM.local);
+                const wind = pick(['wind_speed_10', 'wind_speed_30', 'wind_speed_60', 'wind_speed'], 0, 300, STATION_FIELD_MAX_KM.local);
+                const windDir = pick(['wind_direction_10', 'wind_direction_30', 'wind_direction_60', 'wind_direction'], 0, 360, STATION_FIELD_MAX_KM.local);
+                const pressure = pick(['pressure_msl'], 850, 1100, STATION_FIELD_MAX_KM.pressure);
+                const humidity = pick(['relative_humidity'], 0, 100, STATION_FIELD_MAX_KM.local);
+                const main = temp.source || wind.source || pressure.source;
                 return {
-                    name: src.station_name || '',
-                    distanceKm: src.distance != null ? src.distance / 1000 : null,
+                    name: main?.station_name || '',
+                    stationId: main?.dwd_station_id || '',
+                    distanceKm: main?.distance != null ? main.distance / 1000 : null,
                     timestamp: w.timestamp,
-                    temp: pick(['temperature'], -60, 60),
-                    wind: pick(['wind_speed_10', 'wind_speed_30', 'wind_speed_60', 'wind_speed'], 0, 300),
-                    windDir: pick(['wind_direction_10', 'wind_direction_30', 'wind_direction_60', 'wind_direction'], 0, 360),
-                    pressure: pick(['pressure_msl'], 850, 1100),
-                    humidity: pick(['relative_humidity'], 0, 100)
+                    temp: temp.value, wind: wind.value, windDir: windDir.value, pressure: pressure.value, humidity: humidity.value
                 };
             } catch (e) {
                 return null;
@@ -1570,7 +1587,10 @@
             if (obs.windDir != null) c.wind_direction_10m = obs.windDir;
             if (obs.pressure != null) c.pressure_msl = obs.pressure;
             if (obs.humidity != null) c.relative_humidity_2m = obs.humidity;
-            data.station = { name: obs.name, distanceKm: obs.distanceKm, timestamp: obs.timestamp };
+            // Station nur anzeigen, wenn von ihr wirklich Messwerte uebernommen wurden
+            if ([obs.temp, obs.wind, obs.windDir, obs.pressure, obs.humidity].some(v => v != null)) {
+                data.station = { name: obs.name, id: obs.stationId, distanceKm: obs.distanceKm, timestamp: obs.timestamp };
+            }
         }
 
         function stationNote(data) {
