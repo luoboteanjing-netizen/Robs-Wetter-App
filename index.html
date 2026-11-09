@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.2">
+    <link rel="manifest" href="manifest.json?v=2.3">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -241,16 +241,16 @@
         .hourly-scroll::-webkit-scrollbar { display: none; }
         .hourly-track { width: calc(100cqi / 6 * var(--hours, 6)); }
         /* 48h: Platz oben fuer Wochentag/Datum und Trennlinie bei 0 Uhr */
-        .hourly-track.has-day-markers { position: relative; padding-top: 20px; }
+        .hourly-track.has-day-markers { position: relative; padding-top: 24px; }
         .day-marker { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid var(--text-muted); opacity: 0.9; pointer-events: none; }
         .day-marker span {
             position: absolute; top: 0; left: 0; padding-left: 8px; white-space: nowrap;
             font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--accent-red);
         }
-        .sun-marker { border-left: none; bottom: auto; height: 16px; }
+        .sun-marker { border-left: none; bottom: auto; height: 18px; }
         .sun-marker span {
             left: 50%; padding-left: 0; transform: translateX(-50%);
-            color: var(--text-main); font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: none;
+            color: var(--text-main); font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: none;
         }
         .hourly-items, .hourly-winds { display: flex; }
         .hourly-item, .hourly-wind {
@@ -705,7 +705,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.2</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.3</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -820,7 +820,7 @@
             }
         };
 
-        const APP_VERSION = '2.2';
+        const APP_VERSION = '2.3';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1982,7 +1982,7 @@
 
         function addSunMarkers(track, hourly, daily, fromIndex, toIndex) {
             if (!daily?.sunrise || !hourly?.time) return;
-            const place = (iso) => {
+            const place = (iso, rising) => {
                 if (!iso) return;
                 const hh = Number(iso.slice(11, 13));
                 const mm = Number(iso.slice(14, 16)) || 0;
@@ -1992,12 +1992,12 @@
                 const marker = document.createElement('div');
                 marker.className = 'day-marker sun-marker';
                 marker.style.left = `calc(100cqi / 6 * ${idx - fromIndex + mm / 60})`;
-                marker.innerHTML = `<span>${iso.slice(11, 16)}</span>`;
+                marker.innerHTML = `<span>☀️${rising ? '↑' : '↓'} ${iso.slice(11, 16)}</span>`;
                 track.appendChild(marker);
             };
             for (let d = 0; d < daily.time.length; d++) {
-                place(daily.sunrise[d]);
-                place(daily.sunset[d]);
+                place(daily.sunrise[d], true);
+                place(daily.sunset[d], false);
             }
         }
 
