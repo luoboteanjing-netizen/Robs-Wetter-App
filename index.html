@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.6">
+    <link rel="manifest" href="manifest.json?v=2.8">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -705,7 +705,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.6</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.8</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -728,6 +728,7 @@
                 <select id="log-year" hidden></select>
                 <button type="button" id="log-next" aria-label="Weiter">›</button>
             </div>
+            <p class="log-note" id="log-source" hidden></p>
             <div class="log-chart" id="log-chart"></div>
             <p class="log-note" data-i18n="log_note">Gespeichert auf diesem Gerät, ein Verlauf pro Ort. Export schreibt eine echte Datei.</p>
             <button class="toggle-btn" style="width:100%;" onclick="exportWeatherLog()" data-i18n="log_export">ALS DATEI SPEICHERN</button>
@@ -820,7 +821,7 @@
             }
         };
 
-        const APP_VERSION = '2.6';
+        const APP_VERSION = '2.8';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -847,7 +848,7 @@
                 try {
                     const parsed = JSON.parse(cachedData);
                     updateUI(parsed.data, parsed.city, parsed.region, parsed.timestamp);
-                    cachedSub = stationLabel(parsed.data);
+                    cachedSub = sourceLabel(parsed.data) || stationLabel(parsed.data);
                 } catch(e) {}
             }
             updateFavList();
@@ -1189,11 +1190,15 @@
             try {
                 const key = resolveLogKey(lat, lon, name);
                 const store = readLog(key) || { name, lat, lon, entries: [] };
+                store.name = name;
+                if (data.precipStation) store.precipStation = data.precipStation;
                 const last = store.entries[store.entries.length - 1];
-                if (last && timestamp - last.t < 60 * 1000) return;
+                if (last && timestamp - last.t < 60 * 1000) {
+                    localStorage.setItem(key, JSON.stringify(store));
+                    return;
+                }
                 const nowKey = (data.current?.time || '').slice(0, 13);
                 const round1 = (value) => Math.round(Number(value) * 10) / 10;
-                store.name = name;
                 store.entries.push({
                     t: timestamp,
                     temp: round1(data.current.temperature_2m),
@@ -1523,6 +1528,16 @@
             yearInput.value = String(logAnchor.getFullYear());
 
             const store = readLog(logPlaceKey);
+            const sourceEl = document.getElementById('log-source');
+            if (logMetric === 'rain' && store?.precipStation?.name) {
+                const station = store.precipStation;
+                const dist = station.distanceKm != null ? ` · ${Math.round(station.distanceKm)} km` : '';
+                sourceEl.hidden = false;
+                sourceEl.textContent = `Messstation: ${station.name}${dist}`;
+            } else {
+                sourceEl.hidden = true;
+                sourceEl.textContent = '';
+            }
             const points = pointsForLog(store?.entries || [], logMetric, logRange, logAnchor);
             drawLogChart(points, LOG_METRICS[logMetric].unit, logRange, logRangeBounds(logAnchor, logRange), logMetric);
         }
@@ -1725,6 +1740,41 @@
             data.precipStation = precip.station;
         }
 
+        const TEMP_MODELS = [
+            ['icon_d2', 'ICON'],
+            ['icon_eu', 'ICON'],
+            ['icon_seamless', 'ICON'],
+            ['ecmwf_ifs', 'ECMWF'],
+            ['gfs_seamless', 'GFS'],
+            ['meteofrance_seamless', 'Météo-France'],
+            ['gem_seamless', 'GEM']
+        ];
+
+        async function identifyTempModel(lat, lon, temperature) {
+            if (temperature == null) return 'Open-Meteo';
+            const checks = await Promise.all(TEMP_MODELS.map(async ([id, label]) => {
+                try {
+                    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=auto&forecast_hours=1&models=${id}`);
+                    if (!res.ok) return null;
+                    const body = await res.json();
+                    const value = body.current?.temperature_2m;
+                    if (value == null) return null;
+                    return { label, diff: Math.abs(value - temperature) };
+                } catch (e) {
+                    return null;
+                }
+            }));
+            const ranked = checks.filter(Boolean).sort((a, b) => a.diff - b.diff);
+            if (!ranked.length || ranked[0].diff > 0.2) return 'Open-Meteo';
+            const tied = ranked.filter(item => Math.abs(item.diff - ranked[0].diff) < 0.05).map(item => item.label);
+            return tied.join(' / ');
+        }
+
+        function sourceLabel(data) {
+            if (!data?.tempSource) return '';
+            return `Wetterwerte: ${data.tempSource}`;
+        }
+
         function precipStationLabel(data) {
             const station = data && data.precipStation;
             if (!station || !station.name) return stationLabel(data);
@@ -1759,7 +1809,13 @@
                 
                 updateUI(data, name, region, timestamp);
                 appendWeatherLog(lat, lon, name, data, timestamp);
-                setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, precipStationLabel(data));
+                setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, '');
+                identifyTempModel(lat, lon, data.current?.temperature_2m).then(model => {
+                    if (currentLat !== lat || currentLon !== lon) return;
+                    data.tempSource = model;
+                    localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
+                    setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, sourceLabel(data));
+                }).catch(() => {});
                 // Verlauf (60 Tage) erst im Hintergrund nachladen, nachdem die Hauptansicht steht
                 setTimeout(() => backfillWeatherLog(lat, lon, name), 1500);
             } catch (error) {
