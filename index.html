@@ -2353,12 +2353,7 @@
                 if(!hourly.time[i]) break;
                 const hour = Number(hourly.time[i].slice(11, 13));
                 const isDay = hourly.is_day[i] === 1;
-                const pop = hourly.precipitation_probability?.[i] ?? 0;
-                let code = Number(hourly.weather_code[i]);
-                if (!isPrecipCode(code)) {
-                    if (pop >= 70) code = 61;
-                    else if (pop >= 40 && code <= 1) code = 2;
-                }
+                const code = Number(hourly.weather_code[i]);
                 
                 const label = i === startIndex ? t('now') : hour + (currentLang==='zh'?'时':' Uhr');
                 const temp = Math.round(hourly.temperature_2m[i]);
