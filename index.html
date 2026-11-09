@@ -1684,16 +1684,31 @@
             const res = await fetch(`https://api.brightsky.dev/sources?lat=${lat}&lon=${lon}&max_dist=40000`);
             if (!res.ok) return null;
             const json = await res.json();
-            const seen = new Set();
-            const candidates = [];
-            for (const source of json.sources || []) {
-                if (!source.dwd_station_id || source.observation_type === 'forecast' || seen.has(source.dwd_station_id)) continue;
-                seen.add(source.dwd_station_id);
-                candidates.push(source);
-                if (candidates.length >= 6) break;
-            }
-            candidates.sort((a, b) => a.distance - b.distance);
+            // Pruefzeitraum: gestern. Stationen ohne Daten fuer diesen Tag gar nicht erst anfragen
+            // (Bright Sky antwortet sonst mit 404 "No sources match your criteria", die der Browser als Fehler loggt).
             const probe = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+            const probeStart = Date.parse(probe + 'T00:00:00Z');
+            const probeEnd = probeStart + 86400000;
+            const hasDataForProbe = (source) => {
+                const first = source.first_record ? Date.parse(source.first_record) : null;
+                const last = source.last_record ? Date.parse(source.last_record) : null;
+                if (first != null && first > probeEnd) return false;
+                if (last != null && last < probeStart) return false;
+                return true;
+            };
+            // eine Station kann mehrere Quellen haben (synop, historical ...): reicht, wenn eine davon Daten hat
+            const byStation = new Map();
+            for (const source of json.sources || []) {
+                if (!source.dwd_station_id || source.observation_type === 'forecast') continue;
+                const entry = byStation.get(source.dwd_station_id) || { source, usable: false };
+                if (hasDataForProbe(source)) entry.usable = true;
+                byStation.set(source.dwd_station_id, entry);
+            }
+            const candidates = [...byStation.values()]
+                .filter(entry => entry.usable)
+                .map(entry => entry.source)
+                .sort((a, b) => a.distance - b.distance)
+                .slice(0, 6);
             const checks = await Promise.all(candidates.map(async source => {
                 try {
                     const response = await fetch(`https://api.brightsky.dev/weather?dwd_station_id=${source.dwd_station_id}&date=${probe}`);
