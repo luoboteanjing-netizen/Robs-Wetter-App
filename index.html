@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.3">
+    <link rel="manifest" href="manifest.json?v=2.4">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -705,7 +705,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.3</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.4</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -820,7 +820,7 @@
             }
         };
 
-        const APP_VERSION = '2.3';
+        const APP_VERSION = '2.4';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1543,8 +1543,9 @@
         document.getElementById('log-year').onchange = (event) => { logAnchor = new Date(Number(event.target.value), logAnchor.getMonth(), 1); renderLogPage(); };
 
         // --- 6. WETTER DATEN ---
-        // Optional: Open-Meteo-Modell erzwingen, z. B. '&models=icon_seamless'. Leer = best_match (Standard).
-        const FORECAST_MODELS = '';
+        // DWD ICON. Das automatische Open-Meteo-Modell (best_match) wird in Pruem ab dem Nachmittag klar,
+        // waehrend ICON und die Open-Meteo-Ansicht bedeckt bleiben.
+        const FORECAST_MODELS = '&models=icon_seamless';
 
         // Messwerte der naechsten DWD-Station (Bright Sky). Nur Deutschland, Rueckfall: Open-Meteo-Modellwerte.
         // Optional: feste DWD-Stationsnummer erzwingen (5 Stellen, z. B. '01234'). Leer = naechste Station per Koordinaten.
@@ -1612,8 +1613,8 @@
                 // gefuehlte Temperatur um die gleiche Abweichung nachziehen
                 if (c.apparent_temperature != null) c.apparent_temperature = Math.round((c.apparent_temperature + diff) * 10) / 10;
             }
-            if (obs.wind != null) c.wind_speed_10m = obs.wind;
-            if (obs.windDir != null) c.wind_direction_10m = obs.windDir;
+            // Wind nicht von der Nachbarstation uebernehmen: die liegt oft 10 km weg und
+            // weicht vom Modell ab (Pruem: Station 15 km/h, Open-Meteo ca. 7-10 km/h).
             if (obs.pressure != null) c.pressure_msl = obs.pressure;
             if (obs.humidity != null) c.relative_humidity_2m = obs.humidity;
             // Station nur anzeigen, wenn von ihr wirklich Messwerte uebernommen wurden
