@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.14">
+    <link rel="manifest" href="manifest.json?v=2.15">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -131,10 +131,11 @@
 
         /* Main App */
         .location-header { padding: 10px 20px 15px 20px; display: flex; justify-content: space-between; align-items: flex-start; }
-        .location-header h1 { font-size: 36px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; line-height: 0.95; }
+        .location-header > div:first-child { flex: 1; min-width: 0; margin-right: 12px; }
+        .location-header h1 { font-size: 36px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; line-height: 0.95; max-width: 100%; white-space: nowrap; overflow: hidden; }
         .location-header p { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin-top: 1px; }
         .city-time { margin-top: 8px; font-size: 15px; font-weight: 600; letter-spacing: 0.5px; color: var(--text-main); font-variant-numeric: tabular-nums; }
-        .fav-star { font-size: 28px; cursor: pointer; color: var(--text-muted); }
+        .fav-star { font-size: 28px; cursor: pointer; color: var(--text-muted); flex: 0 0 auto; }
         .fav-star.active { color: #ffcc00; }
 
         .current-weather {
@@ -176,7 +177,7 @@
             height: 140px; 
             object-fit: contain; 
             position: absolute; 
-            left: 50%; 
+            left: 55%; 
             transform: translateX(-50%); 
             z-index: 10; 
             top: 50%; 
@@ -738,7 +739,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.14</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.15</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -855,7 +856,7 @@
             }
         };
 
-        const APP_VERSION = '2.14';
+        const APP_VERSION = '2.15';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -3213,12 +3214,32 @@
             }
         }
 
+        function fitCityName(name) {
+            const el = document.getElementById('city-name');
+            if (!el) return;
+            el.textContent = name;
+            const max = 36;
+            const min = 16;
+            let size = max;
+            el.style.fontSize = size + 'px';
+            if (el.clientWidth < 20) return;
+            while (size > min && el.scrollWidth > el.clientWidth + 1) {
+                size -= 1;
+                el.style.fontSize = size + 'px';
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            const el = document.getElementById('city-name');
+            if (el && el.textContent) fitCityName(el.textContent);
+        });
+
         function updateUI(data, name, region, timestamp) {
             const current = data.current;
             const daily = data.daily;
             const hourly = data.hourly;
 
-            document.getElementById('city-name').innerText = name;
+            fitCityName(name);
             document.getElementById('city-region').innerText = region;
             setCityClock(data.timezone, data.utc_offset_seconds);
             document.getElementById('orte-current-city').innerText = name;
