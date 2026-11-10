@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.8">
+    <link rel="manifest" href="manifest.json?v=2.10">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.2.8/wght.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/libre-franklin@5.2.8/wght.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <style>
@@ -98,8 +99,8 @@
             cursor: pointer; transition: 0.2s; font-size: 14px;
         }
         .toggle-btn.active { background: var(--accent-red); color: white; border-color: var(--accent-red); }
-        .model-group { display: flex; gap: 10px; }
-        .model-group .toggle-btn { flex: 1; }
+        .model-group { display: flex; gap: 6px; }
+        .model-group .toggle-btn { flex: 1; padding: 12px 4px; letter-spacing: 0; font-size: 12px; }
 
         .search-bar {
             background: var(--card-bg); border: 1px solid var(--border-color);
@@ -146,7 +147,7 @@
             align-items: flex-start;
             flex: 0 0 auto;
             z-index: 1;
-            font-family: "Inter Variable", var(--font-family);
+            font-family: "Libre Franklin Variable", "Libre Franklin", var(--font-family);
             font-size: 93.6px;
             font-weight: 600;
             line-height: 0.78;
@@ -703,6 +704,7 @@
                 <div class="model-group">
                     <button type="button" class="toggle-btn" id="btn-model-best" onclick="setWeatherModel('best')">MODELL 1</button>
                     <button type="button" class="toggle-btn" id="btn-model-mix" onclick="setWeatherModel('mix')">MODELL 2</button>
+                    <button type="button" class="toggle-btn" id="btn-model-gated" onclick="setWeatherModel('gated')">MODELL 3</button>
                 </div>
                 <p id="model-hint" class="log-note"></p>
             </div>
@@ -730,7 +732,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.8</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.10</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -846,7 +848,7 @@
             }
         };
 
-        const APP_VERSION = '2.8';
+        const APP_VERSION = '2.10';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -869,15 +871,17 @@
 
             const cachedData = localStorage.getItem('panda_last_weather');
             let cachedSub = '';
+            let cachedWhen = '';
             if(cachedData) {
                 try {
                     const parsed = JSON.parse(cachedData);
                     updateUI(parsed.data, parsed.city, parsed.region, parsed.timestamp);
                     cachedSub = sourceLabel(parsed.data) || stationLabel(parsed.data);
+                    cachedWhen = parsed.timestamp ? formatTime(new Date(parsed.timestamp)) : '';
                 } catch(e) {}
             }
             updateFavList();
-            setStatus(t('stand') + ' ' + formatTime(new Date()), false, cachedSub);
+            setStatus(cachedWhen ? `${t('stand')} ${cachedWhen}` : t('stand') + ' ' + formatTime(new Date()), false, cachedSub);
         }
 
         // --- 2. STATE ---
@@ -905,11 +909,25 @@
             
             if(navigator.onLine) {
                 fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
-            } else {
+            } else if (!restoreCachedForecast()) {
                 setStatus(t('offline'), false);
             }
             checkIfCurrentIsFav();
         };
+
+        function restoreCachedForecast() {
+            const raw = localStorage.getItem('panda_last_weather');
+            if (!raw) return false;
+            try {
+                const parsed = JSON.parse(raw);
+                updateUI(parsed.data, parsed.city, parsed.region, parsed.timestamp);
+                const when = parsed.timestamp ? formatTime(new Date(parsed.timestamp)) : '';
+                setStatus(when ? `${t('stand')} ${when}` : t('offline'), false, sourceLabel(parsed.data) || t('offline'));
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
 
         function setStatus(text, isLoading, sub = '') {
             document.getElementById('status-time').innerText = text;
@@ -1624,29 +1642,278 @@
         // Temperatur und die uebrige Vorhersage: Open-Meteo best_match, nicht die Nachbarstation
         // (die liegt oft hoeher und ist zu kalt).
         function weatherModel() {
-            return localStorage.getItem('panda_model') === 'mix' ? 'mix' : 'best';
+            const model = localStorage.getItem('panda_model');
+            return model === 'mix' || model === 'gated' ? model : 'best';
         }
 
-        function weatherModelParam() {
-            return weatherModel() === 'mix' ? '&models=icon_d2' : '';
+        function isCompositeModel() {
+            return weatherModel() !== 'best';
         }
 
         function highlightWeatherModel(model) {
-            const mix = model === 'mix';
-            const bestBtn = document.getElementById('btn-model-best');
-            const mixBtn = document.getElementById('btn-model-mix');
+            const hints = {
+                best: 'Open-Meteo Best Match',
+                mix: 'Stunden: ICON-D2 · Tage: ECMWF IFS · Temp/Wind: MOSMIX · Regen: DWD-Station · Unsicherheit: ECMWF ENS',
+                gated: '0–48 h: ICON-D2 · ab Tag 3: ECMWF IFS · Temp/Wind: MOSMIX nur bis 20 km und 100 m · Jetzt: Messung bis 40 min · Regen: DWD-Station'
+            };
+            ['best', 'mix', 'gated'].forEach(id => {
+                const button = document.getElementById('btn-model-' + id);
+                if (button) button.classList.toggle('active', model === id);
+            });
             const hint = document.getElementById('model-hint');
-            if (bestBtn) bestBtn.classList.toggle('active', !mix);
-            if (mixBtn) mixBtn.classList.toggle('active', mix);
-            if (hint) hint.textContent = mix
-                ? 'Stunden: ICON-D2 · Tage: ECMWF IFS · Temp/Wind: MOSMIX · Regen: DWD-Station · Unsicherheit: ECMWF ENS'
-                : 'Open-Meteo Best Match';
+            if (hint) hint.textContent = hints[model] || hints.best;
         }
 
         function setWeatherModel(model) {
-            localStorage.setItem('panda_model', model === 'mix' ? 'mix' : 'best');
-            highlightWeatherModel(weatherModel());
+            const next = model === 'mix' || model === 'gated' ? model : 'best';
+            localStorage.setItem('panda_model', next);
+            highlightWeatherModel(next);
             fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
+        }
+
+        const MOSMIX_MAX_DIST_M = 20000;
+        const MOSMIX_MAX_ELEV_M = 100;
+        const MEASURED_MAX_AGE_MS = 40 * 60 * 1000;
+
+        function sourceQualifies(source, elevation) {
+            if (!source || source.distance == null || source.height == null || elevation == null) return false;
+            return source.distance <= MOSMIX_MAX_DIST_M && Math.abs(source.height - elevation) <= MOSMIX_MAX_ELEV_M;
+        }
+
+        function dayKeyFromOffset(offsetSeconds, date = new Date()) {
+            return new Date(date.getTime() + offsetSeconds * 1000).toISOString().slice(0, 10);
+        }
+
+        function shiftDayKey(day, days) {
+            const date = new Date(day + 'T12:00:00Z');
+            date.setUTCDate(date.getUTCDate() + days);
+            return date.toISOString().slice(0, 10);
+        }
+
+        function hourKey(timestamp, offsetSeconds) {
+            return new Date(Date.parse(timestamp) + offsetSeconds * 1000).toISOString().slice(0, 13);
+        }
+
+        function forecastUrl(lat, lon, models) {
+            const modelParam = models ? `&models=${models}` : '';
+            return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m,pressure_msl,sunshine_duration&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&past_days=1&forecast_days=16${modelParam}`;
+        }
+
+        function forecastUsable(data) {
+            return data?.current?.temperature_2m != null || (data?.hourly?.temperature_2m || []).some(value => value != null);
+        }
+
+        async function loadForecast(lat, lon) {
+            const chain = isCompositeModel() ? ['icon_d2', 'ecmwf_ifs', ''] : [''];
+            let lastError = null;
+            for (const model of chain) {
+                try {
+                    const res = await fetch(forecastUrl(lat, lon, model));
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const data = await res.json();
+                    if (!forecastUsable(data)) throw new Error('leer');
+                    data.loadedModel = model || 'best_match';
+                    return data;
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+            throw lastError || new Error('keine Vorhersage');
+        }
+
+        function copyDaily(target, source, field, targetIndex, sourceIndex) {
+            if (source?.[field]?.[sourceIndex] == null) return;
+            if (!target[field]) target[field] = [];
+            target[field][targetIndex] = source[field][sourceIndex];
+        }
+
+        async function applyEcmwfFromDay3(data, lat, lon) {
+            let ecmwf = null;
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=16&models=ecmwf_ifs`);
+                if (res.ok) ecmwf = await res.json();
+            } catch (e) {}
+            if (!ecmwf?.daily?.time) {
+                try {
+                    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=16`);
+                    if (res.ok) ecmwf = await res.json();
+                } catch (e) {}
+            }
+            if (!ecmwf?.daily?.time || !data.daily?.time) return;
+            const byDate = {};
+            ecmwf.daily.time.forEach((day, index) => { byDate[day] = index; });
+            const day3 = shiftDayKey(dayKeyFromOffset(data.utc_offset_seconds || 0), 2);
+            const fields = ['weather_code', 'temperature_2m_max', 'temperature_2m_min', 'precipitation_probability_max', 'wind_speed_10m_max', 'sunrise', 'sunset'];
+            data.daily.time.forEach((day, index) => {
+                const sourceIndex = byDate[day];
+                if (sourceIndex == null) return;
+                if (day >= day3 || data.daily.weather_code?.[index] == null) {
+                    fields.forEach(field => copyDaily(data.daily, ecmwf.daily, field, index, sourceIndex));
+                }
+            });
+        }
+
+        async function fetchQualifyingForecast(lat, lon, elevation) {
+            if (elevation == null || lat < 47 || lat > 55.2 || lon < 5.5 || lon > 15.5) return null;
+            const res = await fetch(`https://api.brightsky.dev/sources?lat=${lat}&lon=${lon}&max_dist=${MOSMIX_MAX_DIST_M}`);
+            if (!res.ok) return null;
+            const body = await res.json();
+            return (body.sources || [])
+                .filter(source => source.observation_type === 'forecast' && sourceQualifies(source, elevation))
+                .sort((a, b) => a.distance - b.distance)[0] || null;
+        }
+
+        async function fetchMosmixHours(forecast, lat, lon, offsetSeconds) {
+            if (!forecast) return {};
+            const start = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+            const end = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
+            const url = forecast.dwd_station_id
+                ? `https://api.brightsky.dev/weather?dwd_station_id=${encodeURIComponent(forecast.dwd_station_id)}&date=${start}&last_date=${end}`
+                : `https://api.brightsky.dev/weather?lat=${lat}&lon=${lon}&date=${start}&last_date=${end}`;
+            const res = await fetch(url);
+            if (!res.ok) return {};
+            const body = await res.json();
+            const typeById = {};
+            (body.sources || []).forEach(source => { typeById[source.id] = source; });
+            const hours = {};
+            for (const row of body.weather || []) {
+                const source = typeById[row.source_id];
+                const chosen = forecast.dwd_station_id ? source?.observation_type === 'forecast' : row.source_id === forecast.id;
+                if (!chosen || (row.temperature == null && row.wind_speed == null)) continue;
+                hours[hourKey(row.timestamp, offsetSeconds)] = {
+                    temp: row.temperature,
+                    wind: row.wind_speed,
+                    windDir: row.wind_direction
+                };
+            }
+            return hours;
+        }
+
+        function fieldSource(row, sources, field) {
+            const sourceId = row.fallback_source_ids?.[field] ?? row.source_id;
+            return sources.find(source => source.id === sourceId) || null;
+        }
+
+        async function fetchQualifyingMeasurements(lat, lon, elevation, offsetSeconds) {
+            const empty = { hours: {}, fresh: null };
+            if (elevation == null || lat < 47 || lat > 55.2 || lon < 5.5 || lon > 15.5) return empty;
+            const start = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+            const end = new Date().toISOString().slice(0, 10);
+            const [historyRes, currentRes] = await Promise.all([
+                fetch(`https://api.brightsky.dev/weather?lat=${lat}&lon=${lon}&date=${start}&last_date=${end}`),
+                fetch(`https://api.brightsky.dev/current_weather?lat=${lat}&lon=${lon}&max_dist=${MOSMIX_MAX_DIST_M}&units=dwd`)
+            ]);
+            const hours = {};
+            if (historyRes.ok) {
+                const body = await historyRes.json();
+                const sources = body.sources || [];
+                for (const row of body.weather || []) {
+                    const tempSource = fieldSource(row, sources, 'temperature');
+                    const windSource = fieldSource(row, sources, 'wind_speed');
+                    const tempOk = row.temperature != null && sourceQualifies(tempSource, elevation);
+                    const windOk = row.wind_speed != null && sourceQualifies(windSource, elevation);
+                    if (!tempOk && !windOk) continue;
+                    hours[hourKey(row.timestamp, offsetSeconds)] = {
+                        temp: tempOk ? row.temperature : null,
+                        wind: windOk ? row.wind_speed : null,
+                        windDir: windOk ? row.wind_direction : null
+                    };
+                }
+            }
+            let fresh = null;
+            if (currentRes.ok) {
+                const body = await currentRes.json();
+                const weather = body.weather;
+                const age = weather?.timestamp ? Date.now() - Date.parse(weather.timestamp) : Infinity;
+                if (age >= 0 && age <= MEASURED_MAX_AGE_MS) {
+                    const sources = body.sources || [];
+                    const tempSource = fieldSource(weather, sources, 'temperature');
+                    const windSource = fieldSource(weather, sources, 'wind_speed');
+                    const tempOk = weather.temperature != null && sourceQualifies(tempSource, elevation);
+                    const windOk = weather.wind_speed != null && sourceQualifies(windSource, elevation);
+                    if (tempOk || windOk) {
+                        fresh = {
+                            temp: tempOk ? Number(weather.temperature) : null,
+                            wind: windOk ? Number(weather.wind_speed) : null,
+                            windDir: windOk ? weather.wind_direction : null,
+                            timestamp: weather.timestamp
+                        };
+                    }
+                }
+            }
+            return { hours, fresh };
+        }
+
+        function writeMixHour(data, index, row) {
+            if (!row) return;
+            if (row.temp != null) data.hourly.temperature_2m[index] = row.temp;
+            if (row.wind != null) data.hourly.wind_speed_10m[index] = row.wind;
+            if (row.windDir != null) data.hourly.wind_direction_10m[index] = row.windDir;
+        }
+
+        function overlayMixHours(data, mosmixHours, measuredHours) {
+            const touched = new Set();
+            if (!data.hourly?.time) return touched;
+            const offset = data.utc_offset_seconds || 0;
+            const now = Date.now();
+            const pastFrom = now - 8 * 3600000;
+            for (let i = 0; i < data.hourly.time.length; i++) {
+                const key = data.hourly.time[i].slice(0, 13);
+                const start = Date.parse(key + ':00:00Z') - offset * 1000;
+                if (start >= pastFrom && start <= now && measuredHours[key]) {
+                    writeMixHour(data, i, measuredHours[key]);
+                    touched.add(key);
+                } else if (start > now && mosmixHours[key]) {
+                    writeMixHour(data, i, mosmixHours[key]);
+                    touched.add(key);
+                }
+            }
+            return touched;
+        }
+
+        function applyTouchedDaily(data, touched) {
+            if (!data.daily?.time || !data.hourly?.time || !touched?.size) return;
+            data.daily.time.forEach((day, index) => {
+                const temps = [];
+                const winds = [];
+                data.hourly.time.forEach((stamp, i) => {
+                    if (!stamp.startsWith(day) || !touched.has(stamp.slice(0, 13))) return;
+                    if (data.hourly.temperature_2m[i] != null) temps.push(data.hourly.temperature_2m[i]);
+                    if (data.hourly.wind_speed_10m[i] != null) winds.push(data.hourly.wind_speed_10m[i]);
+                });
+                if (temps.length >= 18) {
+                    data.daily.temperature_2m_max[index] = Math.max(...temps);
+                    data.daily.temperature_2m_min[index] = Math.min(...temps);
+                }
+                if (winds.length >= 18 && data.daily.wind_speed_10m_max) {
+                    data.daily.wind_speed_10m_max[index] = Math.max(...winds);
+                }
+            });
+        }
+
+        function applyCurrentMix(data, fresh, mosmixHours) {
+            if (!data.current) return data.loadedModel === 'icon_d2' ? 'ICON-D2' : 'Open-Meteo';
+            if (fresh?.temp != null) {
+                data.current.temperature_2m = fresh.temp;
+                if (fresh.wind != null) data.current.wind_speed_10m = fresh.wind;
+                if (fresh.windDir != null) data.current.wind_direction_10m = fresh.windDir;
+                const key = (data.current.time || '').slice(0, 13);
+                const index = data.hourly.time.findIndex(stamp => stamp.slice(0, 13) === key);
+                if (index >= 0) writeMixHour(data, index, fresh);
+                return 'DWD-Messung';
+            }
+            const nowKey = (data.current.time || '').slice(0, 13);
+            const nextKey = Object.keys(mosmixHours).filter(key => key >= nowKey).sort()[0];
+            const row = mosmixHours[nowKey] || (nextKey ? mosmixHours[nextKey] : null);
+            if (row?.temp != null) {
+                data.current.temperature_2m = row.temp;
+                if (row.wind != null) data.current.wind_speed_10m = row.wind;
+                if (row.windDir != null) data.current.wind_direction_10m = row.windDir;
+                return 'MOSMIX';
+            }
+            if (data.loadedModel === 'ecmwf_ifs') return 'ECMWF';
+            if (data.loadedModel === 'icon_d2') return 'ICON-D2';
+            return 'Open-Meteo';
         }
 
         function conditionToCode(icon, condition) {
@@ -1658,119 +1925,117 @@
             if (name.includes('fog') || state === 'fog') return 45;
             if (name.includes('partly')) return 2;
             if (name.includes('clear')) return 0;
-            if (name.includes('cloud') || state === 'dry') return name.includes('cloud') ? 3 : null;
+            if (name.includes('cloud')) return 3;
             return null;
         }
 
-        async function fetchBrightSkyHours(lat, lon, offsetSeconds) {
-            if (lat < 47 || lat > 55.2 || lon < 5.5 || lon > 15.5) return {};
+        async function applyLegacyModel(data, lat, lon) {
+            const offset = data.utc_offset_seconds || 0;
             const start = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
             const end = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
-            const res = await fetch(`https://api.brightsky.dev/weather?lat=${lat}&lon=${lon}&date=${start}&last_date=${end}`);
-            if (!res.ok) return {};
-            const body = await res.json();
+            const inGermany = lat >= 47 && lat <= 55.2 && lon >= 5.5 && lon <= 15.5;
+            const [ecmwf, ens, sky] = await Promise.all([
+                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,precipitation_probability_max,sunrise,sunset&timezone=auto&forecast_days=16&models=ecmwf_ifs`).then(r => r.ok ? r.json() : null).catch(() => null),
+                fetch(`https://ensemble-api.open-meteo.com/v1/ensemble?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max&models=ecmwf_ifs025_ensemble&timezone=auto&forecast_days=10`).then(r => r.ok ? r.json() : null).catch(() => null),
+                inGermany ? fetch(`https://api.brightsky.dev/weather?lat=${lat}&lon=${lon}&date=${start}&last_date=${end}`).then(r => r.ok ? r.json() : null).catch(() => null) : null
+            ]);
+            if (ecmwf?.daily?.time && data.daily?.time) {
+                const byDate = {};
+                ecmwf.daily.time.forEach((day, index) => { byDate[day] = index; });
+                data.daily.time.forEach((day, index) => {
+                    const sourceIndex = byDate[day];
+                    if (sourceIndex == null) return;
+                    ['weather_code', 'precipitation_probability_max', 'sunrise', 'sunset'].forEach(field => copyDaily(data.daily, ecmwf.daily, field, index, sourceIndex));
+                });
+            }
             const typeById = {};
-            (body.sources || []).forEach(source => { typeById[source.id] = source.observation_type; });
+            (sky?.sources || []).forEach(source => { typeById[source.id] = source.observation_type; });
             const hours = {};
-            for (const row of body.weather || []) {
-                const key = new Date(Date.parse(row.timestamp) + offsetSeconds * 1000).toISOString().slice(0, 13);
-                hours[key] = {
+            for (const row of sky?.weather || []) {
+                hours[hourKey(row.timestamp, offset)] = {
                     temp: row.temperature,
                     wind: row.wind_speed,
                     windDir: row.wind_direction,
                     precip: row.precipitation,
-                    icon: row.icon,
-                    condition: row.condition,
-                    measured: typeById[row.source_id] !== 'forecast'
+                    measured: typeById[row.source_id] !== 'forecast',
+                    code: conditionToCode(row.icon, row.condition)
                 };
             }
-            return hours;
-        }
-
-        function overlaySkyHours(data, hours, mix) {
-            if (!hours || !data.hourly?.time) return;
-            const offset = data.utc_offset_seconds || 0;
             const now = Date.now();
             const pastFrom = now - 8 * 3600000;
-            for (let i = 0; i < data.hourly.time.length; i++) {
-                const key = data.hourly.time[i].slice(0, 13);
-                const start = Date.parse(key + ':00:00Z') - offset * 1000;
-                const row = hours[key];
-                if (!row) continue;
-                const past = start >= pastFrom && start <= now;
-                if (past && row.measured) {
-                    if (row.temp != null) data.hourly.temperature_2m[i] = row.temp;
-                    if (row.wind != null) data.hourly.wind_speed_10m[i] = row.wind;
-                    if (row.windDir != null) data.hourly.wind_direction_10m[i] = row.windDir;
-                    if (!data.precipStation && row.precip != null) data.hourly.precipitation[i] = row.precip;
-                    const code = conditionToCode(row.icon, row.condition);
-                    if (code != null) data.hourly.weather_code[i] = code;
-                } else if (mix && start > now) {
-                    if (row.temp != null) data.hourly.temperature_2m[i] = row.temp;
-                    if (row.wind != null) data.hourly.wind_speed_10m[i] = row.wind;
-                    if (row.windDir != null) data.hourly.wind_direction_10m[i] = row.windDir;
-                    if (row.precip != null) data.hourly.precipitation[i] = row.precip;
+            if (data.hourly?.time) {
+                for (let i = 0; i < data.hourly.time.length; i++) {
+                    const key = data.hourly.time[i].slice(0, 13);
+                    const startMs = Date.parse(key + ':00:00Z') - offset * 1000;
+                    const row = hours[key];
+                    if (!row) continue;
+                    if (startMs >= pastFrom && startMs <= now && row.measured) {
+                        writeMixHour(data, i, row);
+                        if (!data.precipStation && row.precip != null) data.hourly.precipitation[i] = row.precip;
+                        if (row.code != null) data.hourly.weather_code[i] = row.code;
+                    } else if (startMs > now && !row.measured) {
+                        writeMixHour(data, i, row);
+                        if (row.precip != null) data.hourly.precipitation[i] = row.precip;
+                    }
                 }
             }
-            if (!mix || !data.current) return;
-            const nowKey = (data.current.time || '').slice(0, 13);
-            const forecastKey = Object.keys(hours).filter(key => key >= nowKey && hours[key].temp != null && !hours[key].measured).sort()[0];
-            const currentRow = forecastKey ? hours[forecastKey] : null;
-            if (!currentRow) return;
-            data.current.temperature_2m = currentRow.temp;
-            if (currentRow.wind != null) data.current.wind_speed_10m = currentRow.wind;
-            if (currentRow.windDir != null) data.current.wind_direction_10m = currentRow.windDir;
-        }
-
-        function applyMosmixDaily(data) {
-            if (!data.daily?.time || !data.hourly?.time) return;
-            data.daily.time.forEach((day, index) => {
-                const temps = [];
-                const winds = [];
-                data.hourly.time.forEach((stamp, i) => {
-                    if (!stamp.startsWith(day)) return;
-                    if (data.hourly.temperature_2m[i] != null) temps.push(data.hourly.temperature_2m[i]);
-                    if (data.hourly.wind_speed_10m[i] != null) winds.push(data.hourly.wind_speed_10m[i]);
+            if (data.daily?.time && data.hourly?.time) {
+                data.daily.time.forEach((day, index) => {
+                    const temps = [];
+                    const winds = [];
+                    data.hourly.time.forEach((stamp, i) => {
+                        if (!stamp.startsWith(day)) return;
+                        if (data.hourly.temperature_2m[i] != null) temps.push(data.hourly.temperature_2m[i]);
+                        if (data.hourly.wind_speed_10m[i] != null) winds.push(data.hourly.wind_speed_10m[i]);
+                    });
+                    if (temps.length) {
+                        data.daily.temperature_2m_max[index] = Math.max(...temps);
+                        data.daily.temperature_2m_min[index] = Math.min(...temps);
+                    }
+                    if (winds.length && data.daily.wind_speed_10m_max) data.daily.wind_speed_10m_max[index] = Math.max(...winds);
                 });
-                if (temps.length) {
-                    data.daily.temperature_2m_max[index] = Math.max(...temps);
-                    data.daily.temperature_2m_min[index] = Math.min(...temps);
-                }
-                if (winds.length && data.daily.wind_speed_10m_max) {
-                    data.daily.wind_speed_10m_max[index] = Math.max(...winds);
-                }
-            });
+            }
+            const nowKey = (data.current?.time || '').slice(0, 13);
+            const forecastKey = Object.keys(hours).filter(key => key >= nowKey && hours[key].temp != null && !hours[key].measured).sort()[0];
+            if (forecastKey && data.current) {
+                const nowIndex = data.hourly?.time?.findIndex(stamp => stamp.slice(0, 13) === nowKey) ?? -1;
+                if (nowIndex >= 0) writeMixHour(data, nowIndex, hours[forecastKey]);
+                data.current.temperature_2m = hours[forecastKey].temp;
+                if (hours[forecastKey].wind != null) data.current.wind_speed_10m = hours[forecastKey].wind;
+                if (hours[forecastKey].windDir != null) data.current.wind_direction_10m = hours[forecastKey].windDir;
+                data.tempSource = 'MOSMIX';
+            } else if (data.loadedModel === 'icon_d2') data.tempSource = 'ICON-D2';
+            if (ens?.daily?.time && data.daily?.time) {
+                const members = Object.keys(ens.daily).filter(key => key.startsWith('temperature_2m_max'));
+                data.daily.unsure = data.daily.time.map(day => {
+                    const index = ens.daily.time.indexOf(day);
+                    if (index < 0 || members.length < 2) return false;
+                    const values = members.map(key => ens.daily[key][index]).filter(value => value != null);
+                    return values.length >= 2 && Math.max(...values) - Math.min(...values) > 4;
+                });
+            }
         }
 
         async function applyMixModel(data, lat, lon) {
             const offset = data.utc_offset_seconds || 0;
-            const [ecmwf, ens, sky] = await Promise.all([
-                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,precipitation_probability_max,sunrise,sunset&timezone=auto&forecast_days=16&models=ecmwf_ifs`).then(r => r.ok ? r.json() : null).catch(() => null),
+            const elevation = data.elevation;
+            const [ens, forecast, measured] = await Promise.all([
                 fetch(`https://ensemble-api.open-meteo.com/v1/ensemble?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max&models=ecmwf_ifs025_ensemble&timezone=auto&forecast_days=10`).then(r => r.ok ? r.json() : null).catch(() => null),
-                fetchBrightSkyHours(lat, lon, offset)
+                fetchQualifyingForecast(lat, lon, elevation).catch(() => null),
+                fetchQualifyingMeasurements(lat, lon, elevation, offset).catch(() => ({ hours: {}, fresh: null }))
             ]);
-            if (ecmwf?.daily?.time && data.daily?.time) {
-                const byDate = {};
-                ecmwf.daily.time.forEach((day, i) => { byDate[day] = i; });
-                data.daily.time.forEach((day, i) => {
-                    const j = byDate[day];
-                    if (j == null) return;
-                    if (ecmwf.daily.weather_code) data.daily.weather_code[i] = ecmwf.daily.weather_code[j];
-                    if (ecmwf.daily.precipitation_probability_max) data.daily.precipitation_probability_max[i] = ecmwf.daily.precipitation_probability_max[j];
-                    if (ecmwf.daily.sunrise) data.daily.sunrise[i] = ecmwf.daily.sunrise[j];
-                    if (ecmwf.daily.sunset) data.daily.sunset[i] = ecmwf.daily.sunset[j];
-                });
-            }
-            overlaySkyHours(data, sky, true);
-            applyMosmixDaily(data);
-            if (ens?.daily?.time) {
+            await applyEcmwfFromDay3(data, lat, lon).catch(() => {});
+            const mosmixHours = await fetchMosmixHours(forecast, lat, lon, offset).catch(() => ({}));
+            const touched = overlayMixHours(data, mosmixHours, measured.hours || {});
+            applyTouchedDaily(data, touched);
+            data.tempSource = applyCurrentMix(data, measured.fresh, mosmixHours);
+            if (ens?.daily?.time && data.daily?.time) {
                 const members = Object.keys(ens.daily).filter(key => key.startsWith('temperature_2m_max'));
                 data.daily.unsure = data.daily.time.map(day => {
-                    const j = ens.daily.time.indexOf(day);
-                    if (j < 0 || members.length < 2) return false;
-                    const values = members.map(key => ens.daily[key][j]).filter(value => value != null);
-                    if (values.length < 2) return false;
-                    return Math.max(...values) - Math.min(...values) > 4;
+                    const index = ens.daily.time.indexOf(day);
+                    if (index < 0 || members.length < 2) return false;
+                    const values = members.map(key => ens.daily[key][index]).filter(value => value != null);
+                    return values.length >= 2 && Math.max(...values) - Math.min(...values) > 4;
                 });
             }
         }
@@ -1962,12 +2227,9 @@
         async function fetchWeather(lat, lon, name, region) {
             setStatus(t('loading'), true);
             const stationPromise = fetchStationObservation(lat, lon);
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m,pressure_msl,sunshine_duration&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&past_days=1&forecast_days=16${weatherModelParam()}`;
             
             try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("HTTP Fehler " + response.status);
-                const data = await response.json();
+                const data = await loadForecast(lat, lon);
                 applyStationObservation(data, await stationPromise);
                 try {
                     const precipStation = await findPrecipStation(lat, lon);
@@ -1979,9 +2241,14 @@
                 } catch (e) {
                     console.error('Niederschlagsstation nicht geladen', e);
                 }
-                if (weatherModel() === 'mix') {
-                    try { await applyMixModel(data, lat, lon); }
-                    catch (e) { console.error('Modell 2 nicht geladen', e); }
+                if (isCompositeModel()) {
+                    data.tempSource = data.loadedModel === 'ecmwf_ifs' ? 'ECMWF' : (data.loadedModel === 'icon_d2' ? 'ICON-D2' : 'Open-Meteo');
+                    try {
+                        if (weatherModel() === 'gated') await applyMixModel(data, lat, lon);
+                        else await applyLegacyModel(data, lat, lon);
+                    } catch (e) {
+                        console.error('Modell nicht geladen', e);
+                    }
                 }
                 
                 const timestamp = new Date().getTime();
@@ -1989,19 +2256,23 @@
                 
                 updateUI(data, name, region, timestamp);
                 appendWeatherLog(lat, lon, name, data, timestamp);
-                setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, '');
-                identifyTempModel(lat, lon, data.current?.temperature_2m).then(model => {
-                    if (currentLat !== lat || currentLon !== lon) return;
-                    data.tempSource = model;
-                    localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
-                    setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, sourceLabel(data));
-                }).catch(() => {});
+                setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, isCompositeModel() ? sourceLabel(data) : '');
+                if (!isCompositeModel()) {
+                    identifyTempModel(lat, lon, data.current?.temperature_2m).then(model => {
+                        if (currentLat !== lat || currentLon !== lon || isCompositeModel()) return;
+                        data.tempSource = model;
+                        localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
+                        setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, sourceLabel(data));
+                    }).catch(() => {});
+                }
                 // Verlauf (60 Tage) erst im Hintergrund nachladen, nachdem die Hauptansicht steht
                 setTimeout(() => backfillWeatherLog(lat, lon, name), 1500);
             } catch (error) {
                 console.error("Fehler beim Laden:", error);
-                setStatus(t('offline'), false);
-                alert("Live data could not be loaded.");
+                if (!restoreCachedForecast()) {
+                    setStatus(t('offline'), false);
+                    alert("Live data could not be loaded.");
+                }
             }
         }
 
