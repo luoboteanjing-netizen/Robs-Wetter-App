@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.11">
+    <link rel="manifest" href="manifest.json?v=2.12">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -280,9 +280,12 @@
         .hourly-item .temp { font-size: 14px; font-weight: 600; }
         .hourly-item .time { white-space: nowrap; }
         .hourly-line { display: block; width: 100%; height: 72px; }
+        #hourly-line { height: 86px; }
         .hourly-line path { fill: none; stroke: var(--accent-red); }
         .hourly-dots { display: flex; height: 0; position: relative; top: -72px; pointer-events: none; }
+        #hourly-dots { top: -86px; }
         .hourly-dot-slot { position: relative; flex: 0 0 calc(100cqi / 6); width: calc(100cqi / 6); height: 72px; }
+        #hourly-dots .hourly-dot-slot { height: 86px; }
         .hourly-dot {
             position: absolute; left: 50%; width: 7px; height: 7px; margin-left: -3.5px; margin-top: -3.5px;
             border-radius: 50%; background: var(--accent-red); box-shadow: 0 0 0 2px var(--card-bg);
@@ -481,7 +484,9 @@
         .place-del { display: flex; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 8px; }
         .place-del:hover, .place-del:active { color: var(--accent-red); }
         .place-empty { padding: 14px 12px; font-size: 13px; color: var(--text-muted); line-height: 1.4; }
-        .log-chart { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 8px; min-height: 200px; }
+        .log-chart { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 8px; min-height: 200px; cursor: crosshair; }
+        .log-probe { margin: 8px 0 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-main); }
+        .log-probe[hidden] { display: none; }
         .log-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 48px 12px; }
         .log-note { color: var(--text-muted); font-size: 12px; margin-top: 10px; line-height: 1.4; }
         .app-version {
@@ -732,7 +737,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.11</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.12</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -757,6 +762,7 @@
             </div>
             <p class="log-note" id="log-source" hidden></p>
             <div class="log-chart" id="log-chart"></div>
+            <p class="log-probe" id="log-probe" hidden></p>
             <p class="log-note" data-i18n="log_note">Gespeichert auf diesem Gerät, ein Verlauf pro Ort. Export schreibt eine echte Datei.</p>
             <button class="toggle-btn" style="width:100%;" onclick="exportWeatherLog()" data-i18n="log_export">ALS DATEI SPEICHERN</button>
         </div>
@@ -848,7 +854,7 @@
             }
         };
 
-        const APP_VERSION = '2.11';
+        const APP_VERSION = '2.12';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -938,6 +944,7 @@
         }
 
         function showPage(id) {
+            if (id !== 'page-log') clearLogProbe();
             document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('active'));
             if (!id) return;
             const page = document.getElementById(id);
@@ -1516,7 +1523,77 @@
                 ${dots}
                 ${xLabels}
             </svg>`;
+            logChartState = { points, unit, w, h, pad, minX, spanX };
+            clearLogProbe();
         }
+
+        let logChartState = null;
+
+        function formatProbeValue(value, unit) {
+            const rounded = Math.round(Number(value) * 10) / 10;
+            const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+            const shown = currentLang === 'de' ? text.replace('.', ',') : text;
+            return unit ? `${shown} ${unit}` : shown;
+        }
+
+        function curveValueAt(points, dataX) {
+            if (!points.length) return null;
+            if (dataX <= points[0].x) return points[0].y;
+            const last = points[points.length - 1];
+            if (dataX >= last.x) return last.y;
+            for (let i = 1; i < points.length; i++) {
+                const left = points[i - 1];
+                const right = points[i];
+                if (dataX > right.x) continue;
+                const span = right.x - left.x;
+                const t = span ? (dataX - left.x) / span : 0;
+                return left.y + (right.y - left.y) * t;
+            }
+            return last.y;
+        }
+
+        function clearLogProbe() {
+            document.getElementById('log-probe-line')?.remove();
+            const probe = document.getElementById('log-probe');
+            if (!probe) return;
+            probe.hidden = true;
+            probe.textContent = '';
+        }
+
+        function onLogChartClick(event) {
+            const svg = event.currentTarget.querySelector('svg');
+            if (!svg || !logChartState || !logChartState.points.length) return;
+            const point = svg.createSVGPoint();
+            point.x = event.clientX;
+            point.y = event.clientY;
+            const ctm = svg.getScreenCTM();
+            if (!ctm) return;
+            const local = point.matrixTransform(ctm.inverse());
+            const { pad, w, h, minX, spanX, points, unit } = logChartState;
+            const plotRight = w - pad.r;
+            if (local.x < pad.l || local.x > plotRight) return;
+            const dataX = minX + ((local.x - pad.l) / Math.max(1, plotRight - pad.l)) * spanX;
+            const value = curveValueAt(points, dataX);
+            if (value == null) return;
+            let line = svg.querySelector('#log-probe-line');
+            if (!line) {
+                line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.id = 'log-probe-line';
+                line.setAttribute('stroke', '#e63946');
+                line.setAttribute('stroke-width', '1.5');
+                line.setAttribute('pointer-events', 'none');
+                svg.appendChild(line);
+            }
+            line.setAttribute('x1', local.x);
+            line.setAttribute('x2', local.x);
+            line.setAttribute('y1', pad.t);
+            line.setAttribute('y2', h - pad.b);
+            const probe = document.getElementById('log-probe');
+            probe.hidden = false;
+            probe.textContent = formatProbeValue(value, unit);
+        }
+
+        document.getElementById('log-chart').addEventListener('click', onLogChartClick);
 
         function shiftLogAnchor(direction) {
             const next = new Date(logAnchor);
@@ -2628,7 +2705,7 @@
                 svg.innerHTML = '';
                 return;
             }
-            const height = 72;
+            const height = lineId === 'hourly-line' ? 86 : 72;
             const slot = 100;
             const min = Math.min(...temps);
             const max = Math.max(...temps);
