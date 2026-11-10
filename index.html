@@ -893,10 +893,18 @@
         }
 
         // --- 2. STATE ---
-        let currentLat = 50.2083;
-        let currentLon = 6.4231;
-        let currentCityName = "PRÜM";
-        let currentRegionName = "RHEINLAND-PFALZ, DEUTSCHLAND";
+        // zuletzt gewaehlter Ort (egal ob Favorit oder nicht) bleibt auch nach einem Neustart aktiv
+        const savedLocation = (() => {
+            try {
+                const value = JSON.parse(localStorage.getItem('panda_location'));
+                if (value && Number.isFinite(value.lat) && Number.isFinite(value.lon) && value.name) return value;
+            } catch (e) {}
+            return null;
+        })();
+        let currentLat = savedLocation ? savedLocation.lat : 50.2083;
+        let currentLon = savedLocation ? savedLocation.lon : 6.4231;
+        let currentCityName = savedLocation ? savedLocation.name : "PRÜM";
+        let currentRegionName = savedLocation ? (savedLocation.region || '') : "RHEINLAND-PFALZ, DEUTSCHLAND";
         let map = null;
         let cityTimeZone = null;
         let cityUtcOffset = null;
@@ -1048,7 +1056,10 @@
         });
 
         function switchCity(lat, lon, name, region) {
-            currentLat = lat; currentLon = lon; currentCityName = name; currentRegionName = region;
+            currentLat = Number(lat); currentLon = Number(lon); currentCityName = name; currentRegionName = region;
+            try {
+                localStorage.setItem('panda_location', JSON.stringify({ lat: currentLat, lon: currentLon, name: currentCityName, region: currentRegionName }));
+            } catch (e) {}
             if(map) syncRadarView();
             checkIfCurrentIsFav();
             setStatus(t('loading'), true);
