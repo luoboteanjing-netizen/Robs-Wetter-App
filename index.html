@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.10">
+    <link rel="manifest" href="manifest.json?v=2.11">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -201,7 +201,7 @@
         .alert-text h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
         .alert-text p { font-size: 14px; color: var(--text-muted); margin: 0; }
         .alert-pressure { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-        .pressure-arrow { display: inline-block; font-size: 14px; line-height: 1; }
+        .pressure-arrow { display: inline-block; font-size: 14px; line-height: 1; transform-origin: center; vertical-align: -1px; }
 
         .status-pill {
             display: inline-flex; align-items: center; gap: 8px;
@@ -732,7 +732,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.10</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.11</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -788,7 +788,7 @@
                 loading: "LADE DATEN...", offline: "OFFLINE (CACHE)", stand: "Letztes Update:",
                 clear: "Klar", partly_cloudy: "Teilweise bewölkt", cloudy: "Bedeckt", fog: "Nebel",
                 rain_c: "Regen", snow: "Schnee", showers: "Regenschauer", snow_showers: "Schneeschauer", thunder: "Gewitter",
-                dry_until: "Trocken bis mindestens 22 Uhr", max_temp: "Höchstwert", around: "gegen 15 Uhr", rain_risk: "Regenrisiko",
+                dry_until: "Trocken bis mindestens {time}", rain_from: "Regen ab {time}", snow_from: "Schnee ab {time}", thunder_from: "Gewitter ab {time}", max_temp: "Höchstwert", around: "gegen 15 Uhr", rain_risk: "Regenrisiko",
                 days: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
                 trend_high: "Höchstwert", trend_low: "Tiefstwert", trend_around: "gegen"
             },
@@ -815,7 +815,7 @@
                 loading: "LOADING...", offline: "OFFLINE (CACHE)", stand: "Last update:",
                 clear: "Clear", partly_cloudy: "Partly cloudy", cloudy: "Overcast", fog: "Fog",
                 rain_c: "Rain", snow: "Snow", showers: "Showers", snow_showers: "Snow showers", thunder: "Thunderstorm",
-                dry_until: "Dry until at least 10 PM", max_temp: "Max", around: "around 3 PM", rain_risk: "Rain risk",
+                dry_until: "Dry until at least {time}", rain_from: "Rain from {time}", snow_from: "Snow from {time}", thunder_from: "Thunder from {time}", max_temp: "Max", around: "around 3 PM", rain_risk: "Rain risk",
                 days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
                 trend_high: "High", trend_low: "Low", trend_around: "around"
             },
@@ -842,13 +842,13 @@
                 loading: "加载中...", offline: "离线 (缓存)", stand: "最近更新:",
                 clear: "晴", partly_cloudy: "多云", cloudy: "阴", fog: "雾",
                 rain_c: "雨", snow: "雪", showers: "阵雨", snow_showers: "阵雪", thunder: "雷暴",
-                dry_until: "至少到晚上10点干燥", max_temp: "最高", around: "约下午3点", rain_risk: "降雨概率",
+                dry_until: "至少到{time}无降水", rain_from: "{time}起有雨", snow_from: "{time}起有雪", thunder_from: "{time}起有雷暴", max_temp: "最高", around: "约下午3点", rain_risk: "降雨概率",
                 days: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
                 trend_high: "最高", trend_low: "最低", trend_around: "约"
             }
         };
 
-        const APP_VERSION = '2.10';
+        const APP_VERSION = '2.11';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -2666,16 +2666,62 @@
         function pressureLine(current, hourly, nowKey) {
             const pressure = current?.pressure_msl;
             if (pressure == null) return '- hPa';
-            let past = null;
+            let delta = null;
+            let span = 0;
             if (hourly?.pressure_msl && hourly.time) {
                 let idx = nowKey ? hourly.time.findIndex(stamp => stamp.slice(0, 13) >= nowKey) : 0;
                 if (idx < 0) idx = hourly.time.length - 1;
-                const pastIdx = Math.max(0, idx - 3);
-                past = hourly.pressure_msl[pastIdx];
+                const nowP = hourly.pressure_msl[idx];
+                const pastIdx = Math.max(0, idx - 6);
+                const pastP = hourly.pressure_msl[pastIdx];
+                if (nowP != null && pastP != null && idx > pastIdx) {
+                    delta = nowP - pastP;
+                    span = idx - pastIdx;
+                }
             }
-            const rising = past == null || pressure >= past;
-            const arrow = `<span class="pressure-arrow wind-arrow" style="transform: rotate(${rising ? -90 : 90}deg);" aria-label="${rising ? 'steigend' : 'fallend'}">➤</span>`;
+            const perHour = delta == null || !span ? 0 : delta / span;
+            let deg = 0;
+            let label = 'stabil';
+            if (Math.abs(perHour) >= 0.12) {
+                const tilt = Math.min((Math.abs(perHour) - 0.12) / 0.7, 1);
+                deg = (perHour > 0 ? -1 : 1) * Math.round(16 + tilt * 56);
+                label = perHour > 0 ? 'steigend' : 'fallend';
+            }
+            const arrow = `<span class="pressure-arrow" style="transform: rotate(${deg}deg);" aria-label="${label}">➤</span>`;
             return `${t('pressure')} ${Math.round(pressure)} hPa ${arrow}`;
+        }
+
+        function formatHourLabel(hour) {
+            if (currentLang === 'zh') return hour + '时';
+            if (currentLang === 'en') {
+                const h12 = hour % 12 || 12;
+                return h12 + (hour < 12 ? ' AM' : ' PM');
+            }
+            return hour + ' Uhr';
+        }
+
+        function wetKind(hourly, index) {
+            const mm = Number(hourly.precipitation?.[index] || 0);
+            const code = Number(hourly.weather_code?.[index]);
+            if (code >= 95) return 'thunder';
+            if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
+            if (mm >= 0.05 || (code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return 'rain';
+            return null;
+        }
+
+        function precipOutlook(hourly, startIndex) {
+            const limit = Math.min(hourly.time.length, startIndex + 18);
+            for (let i = startIndex; i < limit; i++) {
+                const kind = wetKind(hourly, i);
+                if (!kind) continue;
+                const hour = Number(hourly.time[i].slice(11, 13));
+                if (i === startIndex) return kind === 'snow' ? t('snow') : kind === 'thunder' ? t('thunder') : t('rain_c');
+                const key = kind === 'snow' ? 'snow_from' : kind === 'thunder' ? 'thunder_from' : 'rain_from';
+                return t(key).replace('{time}', formatHourLabel(hour));
+            }
+            const last = Math.max(startIndex, limit - 1);
+            const hour = Number(String(hourly.time[last] || '').slice(11, 13));
+            return t('dry_until').replace('{time}', formatHourLabel(hour));
         }
 
         function formatTime(date) {
@@ -2965,14 +3011,9 @@
                 ? `${isRising ? t('trend_high') : t('trend_low')} ${Math.round(isRising ? maxTemp : minTemp)}° ${t('trend_around')} ${trendHour(isRising ? maxIso : minIso)}`
                 : `${t('max_temp')} ${Math.round(daily.temperature_2m_max[0])}°`;
 
-            const rainProb = daily.precipitation_probability_max[0];
             const alertBox = document.querySelector('.alert-box');
             alertBox.style.display = 'flex';
-            if (rainProb > 50) {
-                document.getElementById('alert-title').innerText = `${t('rain_risk')} (${rainProb}%)`;
-            } else {
-                document.getElementById('alert-title').innerText = t('dry_until');
-            }
+            document.getElementById('alert-title').innerText = precipOutlook(hourly, startIndex);
             document.getElementById('alert-desc').innerText = trendDesc;
             document.getElementById('alert-pressure').innerHTML = pressureLine(current, hourly, nowKey);
 
