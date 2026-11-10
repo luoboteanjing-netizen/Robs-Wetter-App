@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.12">
+    <link rel="manifest" href="manifest.json?v=2.14">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -190,17 +190,15 @@
         .weather-details { padding: 0 20px 20px 20px; }
         .condition-text { font-size: 24px; font-weight: 700; margin-bottom: 5px; }
         .sub-details { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; display: flex; gap: 10px; flex-wrap: wrap;}
+        .air-line { margin-top: 6px; }
 
-        /* Tendenz-Zeile */
-        .alert-box {
+        .forecast-box {
             background-color: var(--card-bg); border: 1px solid var(--border-color);
-            border-radius: 20px; padding: 10px 15px; margin: 0 20px 15px 20px;
-            display: flex; align-items: center; gap: 5px;
+            border-radius: 24px; margin: 0 20px 15px 20px; padding: 16px 18px 14px;
         }
-        .alert-label { color: var(--accent-red); font-size: 12px; font-weight: 700; letter-spacing: 1px; min-width: 60px; }
-        .alert-text h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
-        .alert-text p { font-size: 14px; color: var(--text-muted); margin: 0; }
-        .alert-pressure { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+        .forecast-box .graph-header { margin-bottom: 10px; }
+        .forecast-lines { display: flex; flex-direction: column; gap: 6px; }
+        .forecast-lines p { margin: 0; font-size: 15px; line-height: 1.35; }
         .pressure-arrow { display: inline-block; font-size: 14px; line-height: 1; transform-origin: center; vertical-align: -1px; }
 
         .status-pill {
@@ -545,15 +543,18 @@
                 <span>T <span id="low-temp">-°</span></span> • 
                 <span><span data-i18n="wind">WIND</span> <span id="wind-speed">-</span> KM/H</span>
             </div>
+            <div class="sub-details air-line">
+                <span><span data-i18n="humidity">LUFTFEUCHTE</span> <span id="humidity">-</span> %</span>
+                <span id="pressure-inline"></span>
+            </div>
         </div>
 
-        <div class="alert-box" style="display:none;">
-            <div class="alert-label" data-i18n="now">GLEICH</div>
-            <div class="alert-text">
-                <h4 id="alert-title">-</h4>
-                <p id="alert-desc">-</p>
-                <p id="alert-pressure" class="alert-pressure">- hPa</p>
+        <div class="forecast-box" id="forecast-box" style="display:none;">
+            <div class="graph-header">
+                <span data-i18n="forecast">VORHERSAGE</span>
+                <span data-i18n="forecast_span">12 STD</span>
             </div>
+            <div class="forecast-lines" id="forecast-lines"></div>
         </div>
 
         <div class="status-pill" id="refresh-btn">
@@ -737,7 +738,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.12</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.14</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -784,7 +785,7 @@
                 log_empty: "In diesem Zeitraum gibt es noch keine Messungen.", log_delete: "Daten löschen", log_delete_confirm: "Gespeicherte Daten für „{name}“ wirklich löschen?", log_no_places: "Noch keine gespeicherten Daten. Der Verlauf wird nur für Favoriten (★) aufgezeichnet.",
                 log_day: "1 TAG", log_week: "1 WOCHE", log_month: "1 MONAT", log_year: "1 JAHR",
                 log_temp: "TEMP", log_sun: "SONNE", log_wind: "WIND", log_pressure: "DRUCK", log_rain: "REGEN",
-                feels_like: "GEFÜHLT", wind: "WIND", pressure: "Luftdruck:", now: "JETZT", tap_for_details: "TIPPEN FÜR VERLAUF",
+                feels_like: "GEFÜHLT", wind: "WIND", pressure: "Luftdruck:", humidity: "LUFTFEUCHTE", forecast: "VORHERSAGE", forecast_span: "12 STD", now: "JETZT", soon: "GLEICH", tap_for_details: "TIPPEN FÜR VERLAUF",
                 tab_48h: "48 STD", tab_3d: "3 TAGE", tab_7d: "7 TAGE", tab_16d: "16 TAGE", tab_radar: "RADAR", tab_moon: "MOND", moon_title: "MONDPHASEN", moon_rise: "AUFGANG", moon_set: "UNTERGANG", moon_phases: ["Neumond", "Zunehmende Sichel", "Erstes Viertel", "Zunehmender Mond", "Vollmond", "Abnehmender Mond", "Letztes Viertel", "Abnehmende Sichel"],
                 hourly: "STUNDENVERLAUF", until_16: "BIS 16 TAGE", unsure: "UNSICHER", radar_dwd: "RADAR (DWD)",
                 weather_data_by: "Wetterdaten von",
@@ -794,7 +795,7 @@
                 loading: "LADE DATEN...", offline: "OFFLINE (CACHE)", stand: "Letztes Update:",
                 clear: "Klar", partly_cloudy: "Teilweise bewölkt", cloudy: "Bedeckt", fog: "Nebel",
                 rain_c: "Regen", snow: "Schnee", showers: "Regenschauer", snow_showers: "Schneeschauer", thunder: "Gewitter",
-                dry_until: "Trocken bis mindestens {time}", rain_from: "Regen ab {time}", snow_from: "Schnee ab {time}", thunder_from: "Gewitter ab {time}", max_temp: "Höchstwert", around: "gegen 15 Uhr", rain_risk: "Regenrisiko",
+                dry_until: "Trocken bis etwa {time}", rain_from: "Regen ab etwa {time}", snow_from: "Schnee ab etwa {time}", thunder_from: "Gewitter ab etwa {time}", max_temp: "Höchstwert", around: "gegen 15 Uhr", rain_risk: "Regenrisiko",
                 days: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
                 trend_high: "Höchstwert", trend_low: "Tiefstwert", trend_around: "gegen"
             },
@@ -811,7 +812,7 @@
                 log_empty: "No readings in this period yet.", log_delete: "Delete data", log_delete_confirm: "Really delete the stored data for \"{name}\"?", log_no_places: "No stored data yet. History is only recorded for favorites (★).",
                 log_day: "1 DAY", log_week: "1 WEEK", log_month: "1 MONTH", log_year: "1 YEAR",
                 log_temp: "TEMP", log_sun: "SUN", log_wind: "WIND", log_pressure: "PRESSURE", log_rain: "RAIN",
-                feels_like: "FEELS LIKE", wind: "WIND", pressure: "Pressure:", now: "NOW", tap_for_details: "TAP FOR DETAILS",
+                feels_like: "FEELS LIKE", wind: "WIND", pressure: "Pressure:", humidity: "HUMIDITY", forecast: "FORECAST", forecast_span: "12 HRS", now: "NOW", soon: "SOON", tap_for_details: "TAP FOR DETAILS",
                 tab_48h: "48 HRS", tab_3d: "3 DAYS", tab_7d: "7 DAYS", tab_16d: "16 DAYS", tab_radar: "RADAR", tab_moon: "MOON", moon_title: "MOON PHASES", moon_rise: "MOONRISE", moon_set: "MOONSET", moon_phases: ["New moon", "Waxing crescent", "First quarter", "Waxing gibbous", "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"],
                 hourly: "HOURLY FORECAST", until_16: "UP TO 16 DAYS", unsure: "UNCERTAIN", radar_dwd: "RADAR (DWD)",
                 weather_data_by: "Weather data by",
@@ -821,7 +822,7 @@
                 loading: "LOADING...", offline: "OFFLINE (CACHE)", stand: "Last update:",
                 clear: "Clear", partly_cloudy: "Partly cloudy", cloudy: "Overcast", fog: "Fog",
                 rain_c: "Rain", snow: "Snow", showers: "Showers", snow_showers: "Snow showers", thunder: "Thunderstorm",
-                dry_until: "Dry until at least {time}", rain_from: "Rain from {time}", snow_from: "Snow from {time}", thunder_from: "Thunder from {time}", max_temp: "Max", around: "around 3 PM", rain_risk: "Rain risk",
+                dry_until: "Dry until about {time}", rain_from: "Rain from about {time}", snow_from: "Snow from about {time}", thunder_from: "Thunder from about {time}", max_temp: "Max", around: "around 3 PM", rain_risk: "Rain risk",
                 days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
                 trend_high: "High", trend_low: "Low", trend_around: "around"
             },
@@ -838,7 +839,7 @@
                 log_empty: "这个时间段还没有记录。", log_delete: "删除数据", log_delete_confirm: "确定要删除“{name}”的已保存数据吗？", log_no_places: "还没有已保存的数据。只会记录收藏地点（★）。",
                 log_day: "1天", log_week: "1周", log_month: "1月", log_year: "1年",
                 log_temp: "温度", log_sun: "日照", log_wind: "风", log_pressure: "气压", log_rain: "降水",
-                feels_like: "体感温度", wind: "风速", pressure: "气压:", now: "现在", tap_for_details: "点击查看详情",
+                feels_like: "体感温度", wind: "风速", pressure: "气压:", humidity: "湿度", forecast: "预报", forecast_span: "12小时", now: "现在", soon: "即将", tap_for_details: "点击查看详情",
                 tab_48h: "48小时", tab_3d: "3天", tab_7d: "7天", tab_16d: "16天", tab_radar: "雷达", tab_moon: "月相", moon_title: "月相", moon_rise: "月出", moon_set: "月落", moon_phases: ["新月", "蛾眉月", "上弦月", "盈凸月", "满月", "亏凸月", "下弦月", "残月"],
                 hourly: "每小时预报", until_16: "16天预报", unsure: "不确定", radar_dwd: "雷达 (DWD)",
                 weather_data_by: "天气数据由",
@@ -848,13 +849,13 @@
                 loading: "加载中...", offline: "离线 (缓存)", stand: "最近更新:",
                 clear: "晴", partly_cloudy: "多云", cloudy: "阴", fog: "雾",
                 rain_c: "雨", snow: "雪", showers: "阵雨", snow_showers: "阵雪", thunder: "雷暴",
-                dry_until: "至少到{time}无降水", rain_from: "{time}起有雨", snow_from: "{time}起有雪", thunder_from: "{time}起有雷暴", max_temp: "最高", around: "约下午3点", rain_risk: "降雨概率",
+                dry_until: "大约到{time}无降水", rain_from: "大约{time}起有雨", snow_from: "大约{time}起有雪", thunder_from: "大约{time}起有雷暴", max_temp: "最高", around: "约下午3点", rain_risk: "降雨概率",
                 days: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
                 trend_high: "最高", trend_low: "最低", trend_around: "约"
             }
         };
 
-        const APP_VERSION = '2.12';
+        const APP_VERSION = '2.14';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1773,7 +1774,7 @@
 
         function forecastUrl(lat, lon, models) {
             const modelParam = models ? `&models=${models}` : '';
-            return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m,pressure_msl,sunshine_duration&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&past_days=1&forecast_days=16${modelParam}`;
+            return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,sunshine_duration&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&past_days=1&forecast_days=16${modelParam}`;
         }
 
         function forecastUsable(data) {
@@ -2801,6 +2802,182 @@
             return t('dry_until').replace('{time}', formatHourLabel(hour));
         }
 
+        function hourFamily(hourly, index) {
+            const mm = Number(hourly.precipitation?.[index] || 0);
+            const code = Number(hourly.weather_code?.[index]);
+            if (code >= 95) return 'thunder';
+            if (code === 45 || code === 48) return 'fog';
+            if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
+            if (code === 56 || code === 57 || code === 66 || code === 67) return 'sleet';
+            if (code >= 80 && code <= 82) return 'showers';
+            if ((code >= 51 && code <= 55) || (mm >= 0.05 && mm < 0.4 && code < 61)) return 'drizzle';
+            if ((code >= 61 && code <= 65) || mm >= 0.05) return 'rain';
+            return 'dry';
+        }
+
+        function spellStrength(spell) {
+            if (spell.family === 'fog' || spell.family === 'dry') return '';
+            if (spell.codes.some(code => [65, 67, 75, 82, 96, 99].includes(code)) || spell.maxMm >= 4) return 'strong';
+            if (spell.maxMm < 1 || spell.codes.every(code => [51, 53, 55, 61, 71, 80].includes(code) || code < 51)) return 'light';
+            return '';
+        }
+
+        function forecastNoun(family) {
+            const de = { rain: 'Regen', drizzle: 'Nieselregen', showers: 'Regenschauer', snow: 'Schnee', sleet: 'Schneeregen', fog: 'Nebel', thunder: 'Gewitter', dry: 'Trocken' };
+            const en = { rain: 'rain', drizzle: 'drizzle', showers: 'showers', snow: 'snow', sleet: 'sleet', fog: 'fog', thunder: 'thunderstorms', dry: 'dry' };
+            const zh = { rain: '雨', drizzle: '毛毛雨', showers: '阵雨', snow: '雪', sleet: '雨夹雪', fog: '雾', thunder: '雷暴', dry: '无降水' };
+            const map = currentLang === 'zh' ? zh : currentLang === 'en' ? en : de;
+            return map[family] || map.rain;
+        }
+
+        function forecastAdjectives(spell) {
+            const neuter = currentLang === 'de' && spell.family === 'thunder';
+            const words = [];
+            if (spell.hours <= 2) words.push('short');
+            else if (spell.hours >= 4) words.push('lasting');
+            if (spell.strength === 'light') words.push('light');
+            if (spell.strength === 'strong') words.push('strong');
+            if (currentLang === 'zh') {
+                return words.map(word => ({ short: '短时', lasting: '持续', light: '小', strong: '大' }[word])).join('');
+            }
+            if (currentLang === 'en') {
+                return words.map((word, index) => {
+                    const text = { short: 'short', lasting: 'lasting', light: 'light', strong: 'heavy' }[word];
+                    return index === 0 ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+                }).join(' ');
+            }
+            const male = { short: ['Kurzer', 'kurzer'], lasting: ['Anhaltender', 'anhaltender'], light: ['Leichter', 'leichter'], strong: ['Starker', 'starker'] };
+            const neu = { short: ['Kurzes', 'kurzes'], lasting: ['Anhaltendes', 'anhaltendes'], light: ['Leichtes', 'leichtes'], strong: ['Starkes', 'starkes'] };
+            const table = neuter ? neu : male;
+            return words.map((word, index) => table[word][index === 0 ? 0 : 1]).join(' ');
+        }
+
+        function fromForecastText(spell, hourly) {
+            const startHour = Number(hourly.time[spell.start].slice(11, 13));
+            const time = formatHourLabel(startHour);
+            const adj = forecastAdjectives(spell);
+            const noun = forecastNoun(spell.family);
+            const enNoun = adj ? noun : noun.charAt(0).toUpperCase() + noun.slice(1);
+            let text = currentLang === 'zh'
+                ? `大约${time}起有${adj}${noun}`
+                : currentLang === 'en'
+                    ? `${adj ? adj + ' ' : ''}${enNoun} from about ${time}`
+                    : `${adj ? adj + ' ' : ''}${noun} ab etwa ${time}`;
+            if (!spell.reachesEnd) {
+                const endHour = Number(hourly.time[spell.end + 1].slice(11, 13));
+                const until = formatHourLabel(endHour);
+                text += currentLang === 'zh' ? `，大约到${until}` : currentLang === 'en' ? `, until about ${until}` : `, bis etwa ${until}`;
+            }
+            return text.replace(/\s+/g, ' ').trim();
+        }
+
+        function untilForecastText(spell, hourly) {
+            const endHour = Number(hourly.time[spell.end + 1].slice(11, 13));
+            const time = formatHourLabel(endHour);
+            if (currentLang === 'de' && spell.family === 'snow') return `Es schneit bis etwa ${time}`;
+            if (currentLang === 'en' && spell.family === 'snow') return `Snow until about ${time}`;
+            if (currentLang === 'zh' && spell.family === 'snow') return `大约到${time}有雪`;
+            const adj = forecastAdjectives(spell);
+            const noun = forecastNoun(spell.family);
+            const enNoun = adj ? noun : noun.charAt(0).toUpperCase() + noun.slice(1);
+            if (currentLang === 'zh') return `大约到${time}有${adj}${noun}`;
+            if (currentLang === 'en') return `${adj ? adj + ' ' : ''}${enNoun} until about ${time}`;
+            return `${adj ? adj + ' ' : ''}${noun} bis etwa ${time}`.replace(/\s+/g, ' ').trim();
+        }
+
+        function lastingNowText(spell) {
+            const noun = forecastNoun(spell.family);
+            if (currentLang === 'zh') return `持续有${noun}`;
+            if (currentLang === 'en') return `Lasting ${noun}`;
+            if (spell.family === 'snow') return 'Es schneit anhaltend';
+            if (spell.family === 'fog') return 'Nebel hält an';
+            if (spell.family === 'thunder') return 'Anhaltendes Gewitter';
+            return `Anhaltender ${noun}`;
+        }
+
+        function compassLabel(deg) {
+            if (deg == null || Number.isNaN(Number(deg))) return '';
+            const dirs = currentLang === 'zh'
+                ? ['北', '东北', '东', '东南', '南', '西南', '西', '西北']
+                : currentLang === 'en'
+                    ? ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+                    : ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'];
+            return dirs[Math.round((((Number(deg) % 360) + 360) % 360) / 45) % 8];
+        }
+
+        function windOutlook(hourly, current, start, end) {
+            let peak = start;
+            let peakWind = -1;
+            let peakGust = 0;
+            for (let i = start; i < end; i++) {
+                const wind = Number(hourly.wind_speed_10m?.[i] ?? 0);
+                const gust = Number(hourly.wind_gusts_10m?.[i] ?? 0);
+                if (wind > peakWind) { peakWind = wind; peak = i; }
+                if (gust > peakGust) peakGust = gust;
+            }
+            if (peakWind < 0) peakWind = Number(current?.wind_speed_10m ?? 0);
+            const dir = compassLabel(hourly.wind_direction_10m?.[peak] ?? current?.wind_direction_10m);
+            const later = peak > start && peakWind >= Number(current?.wind_speed_10m || 0) + 8;
+            const time = formatHourLabel(Number(String(hourly.time?.[peak] || '').slice(11, 13)));
+            const speed = Math.round(peakWind);
+            const gust = Math.round(peakGust);
+            const storm = peakWind >= 75 || peakGust >= 90;
+            const gusty = gust >= 40 && gust >= speed + 10;
+            if (currentLang === 'zh') {
+                let text = storm ? `风暴 ${dir} ${speed} km/h` : `风 ${dir} ${speed} km/h`;
+                if (later) text += `，大约${time}起`;
+                if (gusty) text += gust >= 65 ? `，强阵风 ${gust} km/h` : `，阵风 ${gust} km/h`;
+                return text.replace(/\s+/g, ' ').trim();
+            }
+            if (currentLang === 'en') {
+                let text = storm ? `Storm from ${dir}, ${speed} km/h` : `Wind ${dir} ${speed} km/h`;
+                if (later) text += ` from about ${time}`;
+                if (gusty) text += gust >= 65 ? `, severe gusts ${gust} km/h` : `, gusts ${gust} km/h`;
+                return text.replace(/\s+/g, ' ').trim();
+            }
+            let text = storm ? `Sturm aus ${dir}, ${speed} km/h` : `Wind ${dir} ${speed} km/h`;
+            if (later) text += ` ab etwa ${time}`;
+            if (gusty) text += gust >= 65 ? `, stürmische Böen ${gust} km/h` : `, Böen ${gust} km/h`;
+            return text.replace(/\s+/g, ' ').trim();
+        }
+
+        function buildForecastLines(hourly, current, startIndex, trendDesc) {
+            const end = Math.min(hourly.time.length, startIndex + 12);
+            const spells = [];
+            for (let i = startIndex; i < end; i++) {
+                const family = hourFamily(hourly, i);
+                const mm = Number(hourly.precipitation?.[i] || 0);
+                const code = Number(hourly.weather_code?.[i]);
+                const last = spells[spells.length - 1];
+                if (last && last.family === family) {
+                    last.end = i;
+                    last.maxMm = Math.max(last.maxMm, mm);
+                    last.codes.push(code);
+                } else {
+                    spells.push({ family, start: i, end: i, maxMm: mm, codes: [code] });
+                }
+            }
+            spells.forEach(spell => {
+                spell.hours = spell.end - spell.start + 1;
+                spell.strength = spellStrength(spell);
+                spell.reachesEnd = spell.end >= end - 1;
+            });
+            const lines = [];
+            const first = spells[0];
+            const next = spells.find((spell, index) => index > 0 && spell.family !== 'dry' && spell.family !== first?.family);
+            if (first && first.family !== 'dry') {
+                lines.push(first.reachesEnd ? lastingNowText(first) : untilForecastText(first, hourly));
+            }
+            if (next) lines.push(fromForecastText(next, hourly));
+            if ((!first || first.family === 'dry') && !next) {
+                const hour = Number(String(hourly.time[Math.max(startIndex, end - 1)] || '').slice(11, 13));
+                lines.push(t('dry_until').replace('{time}', formatHourLabel(hour)));
+            }
+            if (trendDesc) lines.push(trendDesc);
+            lines.push(windOutlook(hourly, current, startIndex, end));
+            return lines.filter(Boolean);
+        }
+
         function formatTime(date) {
             return date.toLocaleTimeString(currentLang === 'zh' ? 'zh-CN' : currentLang, { hour: '2-digit', minute: '2-digit' });
         }
@@ -3054,6 +3231,8 @@
             document.getElementById('high-temp').innerText = Math.round(daily.temperature_2m_max[0]) + '°';
             document.getElementById('low-temp').innerText = Math.round(daily.temperature_2m_min[0]) + '°';
             document.getElementById('wind-speed').innerText = Math.round(current.wind_speed_10m);
+            const humidity = current.relative_humidity_2m;
+            document.getElementById('humidity').textContent = humidity == null ? '-' : String(Math.round(humidity));
 
             // --- GROSSES PANDA BILD ZUWEISEN ---
             const pandaIconName = getMeteoconUrl(current.weather_code, current.is_day);
@@ -3088,11 +3267,11 @@
                 ? `${isRising ? t('trend_high') : t('trend_low')} ${Math.round(isRising ? maxTemp : minTemp)}° ${t('trend_around')} ${trendHour(isRising ? maxIso : minIso)}`
                 : `${t('max_temp')} ${Math.round(daily.temperature_2m_max[0])}°`;
 
-            const alertBox = document.querySelector('.alert-box');
-            alertBox.style.display = 'flex';
-            document.getElementById('alert-title').innerText = precipOutlook(hourly, startIndex);
-            document.getElementById('alert-desc').innerText = trendDesc;
-            document.getElementById('alert-pressure').innerHTML = pressureLine(current, hourly, nowKey);
+            document.getElementById('pressure-inline').innerHTML = pressureLine(current, hourly, nowKey);
+            const forecastBox = document.getElementById('forecast-box');
+            const forecastLines = buildForecastLines(hourly, current, startIndex, trendDesc);
+            document.getElementById('forecast-lines').innerHTML = forecastLines.map(line => `<p>${line}</p>`).join('');
+            forecastBox.style.display = 'block';
 
             // --- 48h VIEW ---
             const hourlyItems = document.getElementById('hourly-items');
