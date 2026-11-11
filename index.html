@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.16">
+    <link rel="manifest" href="manifest.json?v=2.17">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -740,7 +740,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.16</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.17</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -784,6 +784,7 @@
                 log_title: "VERLAUF", log_open: "DIAGRAMM ÖFFNEN", log_export: "ALS DATEI SPEICHERN",
                 log_hint: "Der Verlauf wird nur für Favoriten (★) gespeichert. Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag gespeichert. Fehlende Tage werden bis zu 60 Tage nachgeladen.",
                 log_note: "Gespeichert auf diesem Gerät, ein Verlauf pro Ort. Export schreibt eine echte Datei.",
+                log_model_hours: "Open-Meteo Stundenwerte",
                 log_empty: "In diesem Zeitraum gibt es noch keine Messungen.", log_delete: "Daten löschen", log_delete_confirm: "Gespeicherte Daten für „{name}“ wirklich löschen?", log_no_places: "Noch keine gespeicherten Daten. Der Verlauf wird nur für Favoriten (★) aufgezeichnet.",
                 log_day: "1 TAG", log_week: "1 WOCHE", log_month: "1 MONAT", log_year: "1 JAHR",
                 log_temp: "TEMP", log_sun: "SONNE", log_wind: "WIND", log_pressure: "DRUCK", log_rain: "REGEN",
@@ -811,6 +812,7 @@
                 log_title: "HISTORY", log_open: "OPEN CHART", log_export: "SAVE AS FILE",
                 log_hint: "History is only stored for favorite places (★). On open, temperature, sunshine, wind, pressure and precipitation are stored for this place.",
                 log_note: "Stored on this device, one history per place. Export writes a real file.",
+                log_model_hours: "Open-Meteo hourly values",
                 log_empty: "No readings in this period yet.", log_delete: "Delete data", log_delete_confirm: "Really delete the stored data for \"{name}\"?", log_no_places: "No stored data yet. History is only recorded for favorites (★).",
                 log_day: "1 DAY", log_week: "1 WEEK", log_month: "1 MONTH", log_year: "1 YEAR",
                 log_temp: "TEMP", log_sun: "SUN", log_wind: "WIND", log_pressure: "PRESSURE", log_rain: "RAIN",
@@ -838,6 +840,7 @@
                 log_title: "记录", log_open: "打开图表", log_export: "保存为文件",
                 log_hint: "仅保存收藏地点（★）的记录。打开应用时会保存该地点的温度、日照、风速、气压和降水量。",
                 log_note: "保存在本设备上，每个地点一份记录。导出会写成真正的文件。",
+                log_model_hours: "Open-Meteo 小时数据",
                 log_empty: "这个时间段还没有记录。", log_delete: "删除数据", log_delete_confirm: "确定要删除“{name}”的已保存数据吗？", log_no_places: "还没有已保存的数据。只会记录收藏地点（★）。",
                 log_day: "1天", log_week: "1周", log_month: "1月", log_year: "1年",
                 log_temp: "温度", log_sun: "日照", log_wind: "风", log_pressure: "气压", log_rain: "降水",
@@ -857,7 +860,7 @@
             }
         };
 
-        const APP_VERSION = '2.16';
+        const APP_VERSION = '2.17';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1618,6 +1621,57 @@
             logAnchor = next;
         }
 
+        let dayModelCache = null;
+        let logDayToken = 0;
+
+        async function loadDayModelHours(lat, lon, day) {
+            const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)},${day}`;
+            if (dayModelCache?.key === key) return dayModelCache;
+            const query = `latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,pressure_msl,precipitation,sunshine_duration&timezone=auto&start_date=${day}&end_date=${day}`;
+            let data = null;
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?${query}`);
+                if (res.ok) data = await res.json();
+            } catch (e) {}
+            if (!data?.hourly?.time?.length) {
+                const res = await fetch(`https://archive-api.open-meteo.com/v1/archive?${query}`);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                data = await res.json();
+            }
+            const offset = data.utc_offset_seconds || 0;
+            const hourly = data.hourly || {};
+            const placeToday = new Date(Date.now() + offset * 1000).toISOString().slice(0, 10);
+            const rows = [];
+            let sun = 0;
+            let rain = 0;
+            for (let i = 0; i < hourly.time.length; i++) {
+                const stamp = hourly.time[i];
+                const t = Date.parse(stamp.slice(0, 13) + ':00:00Z') - offset * 1000;
+                if (day === placeToday && t > Date.now()) break;
+                sun += Number(hourly.sunshine_duration?.[i] || 0) / 3600;
+                rain += Number(hourly.precipitation?.[i] || 0);
+                rows.push({
+                    t,
+                    temp: hourly.temperature_2m?.[i],
+                    wind: hourly.wind_speed_10m?.[i],
+                    pressure: hourly.pressure_msl?.[i],
+                    sun,
+                    rain
+                });
+            }
+            dayModelCache = { key, rows };
+            return dayModelCache;
+        }
+
+        function pointsFromDayModel(rows, metric) {
+            const field = LOG_METRICS[metric].key;
+            return rows.filter(row => row[field] != null && !Number.isNaN(Number(row[field]))).map(row => ({
+                x: row.t,
+                y: Math.round(Number(row[field]) * 10) / 10,
+                label: formatTime(new Date(row.t))
+            }));
+        }
+
         function renderLogPage() {
             const index = readLogIndex();
             const placeBtn = document.getElementById('log-place-btn');
@@ -1664,6 +1718,27 @@
 
             const store = readLog(logPlaceKey);
             const sourceEl = document.getElementById('log-source');
+            const bounds = logRangeBounds(logAnchor, logRange);
+            const unit = LOG_METRICS[logMetric].unit;
+            if (logRange === 'day') {
+                sourceEl.hidden = false;
+                sourceEl.textContent = t('log_model_hours');
+                const lat = activePlace?.lat ?? store?.lat ?? currentLat;
+                const lon = activePlace?.lon ?? store?.lon ?? currentLon;
+                const day = isoDay(logAnchor);
+                const token = ++logDayToken;
+                const fallback = pointsForLog(store?.entries || [], logMetric, logRange, logAnchor);
+                drawLogChart(fallback, unit, logRange, bounds, logMetric);
+                loadDayModelHours(lat, lon, day).then(cached => {
+                    if (token !== logDayToken || logRange !== 'day') return;
+                    const points = pointsFromDayModel(cached.rows, logMetric);
+                    drawLogChart(points.length ? points : fallback, unit, logRange, bounds, logMetric);
+                }).catch(() => {
+                    if (token !== logDayToken) return;
+                    drawLogChart(fallback, unit, logRange, bounds, logMetric);
+                });
+                return;
+            }
             if (logMetric === 'rain' && store?.precipStation?.name) {
                 const station = store.precipStation;
                 const dist = station.distanceKm != null ? ` · ${Math.round(station.distanceKm)} km` : '';
@@ -1674,7 +1749,7 @@
                 sourceEl.textContent = '';
             }
             const points = pointsForLog(store?.entries || [], logMetric, logRange, logAnchor);
-            drawLogChart(points, LOG_METRICS[logMetric].unit, logRange, logRangeBounds(logAnchor, logRange), logMetric);
+            drawLogChart(points, unit, logRange, bounds, logMetric);
         }
 
         function openLogPage() {
