@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.15">
+    <link rel="manifest" href="manifest.json?v=2.16">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -302,6 +302,7 @@
         .hourly-rain .bar { width: 68%; background: #7eb6f0; border-radius: 4px 4px 0 0; }
         .hourly-legend { display: flex; gap: 14px; align-items: center; font-size: 11px; color: var(--text-muted); margin: 6px 0 0; }
         .hourly-legend i { display: inline-block; width: 10px; height: 10px; background: #7eb6f0; border-radius: 2px; margin-right: 4px; }
+        #hourly-winds { margin-top: 6px; }
         .hourly-wind {
             display: flex; align-items: center; justify-content: center; gap: 2px;
             font-size: 10px; color: var(--text-muted); padding: 2px 0 0;
@@ -739,7 +740,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.15</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.16</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -856,7 +857,7 @@
             }
         };
 
-        const APP_VERSION = '2.15';
+        const APP_VERSION = '2.16';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -3245,6 +3246,24 @@
             if (el && el.textContent) fitCityName(el.textContent);
         });
 
+        let hourlyCentered = false;
+        function centerHourlyNow(nowIndex) {
+            if (hourlyCentered || nowIndex < 0) return;
+            const scroller = document.getElementById('hourly-container');
+            if (!scroller) return;
+            const place = () => {
+                if (hourlyCentered) return;
+                const width = scroller.clientWidth;
+                if (width < 20) return;
+                const slot = width / 6;
+                scroller.scrollLeft = Math.max(0, (nowIndex + 0.5) * slot - width / 2);
+                hourlyCentered = true;
+            };
+            place();
+            requestAnimationFrame(place);
+            setTimeout(place, 60);
+        }
+
         function updateUI(data, name, region, timestamp) {
             const current = data.current;
             const daily = data.daily;
@@ -3360,6 +3379,7 @@
             drawHourlyLine(hourlyTemps);
             renderHourlyRain(hourlyRains);
             addSunMarkers(hourlyTrack, hourly, daily, hourFrom, hourTo);
+            centerHourlyNow(startIndex - hourFrom);
 
             const threeDayContainer = document.getElementById('three-day-container');
             threeDayContainer.innerHTML = '';
