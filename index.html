@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.17">
+    <link rel="manifest" href="manifest.json?v=2.19">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -740,7 +740,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.17</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.19</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -860,7 +860,7 @@
             }
         };
 
-        const APP_VERSION = '2.17';
+        const APP_VERSION = '2.19';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1003,6 +1003,7 @@
         document.getElementById('city-name').onclick = openPlaces;
         
         document.getElementById('refresh-btn').onclick = () => {
+            hourlyCentered = false;
             fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
         };
 
@@ -1315,8 +1316,8 @@
                 });
                 if (lastPrecipObs && Math.abs(lastPrecipObs.lat - lat) < 0.02 && lastPrecipObs.precip?.daily) {
                     store.entries.forEach(entry => {
-                        if (!entry.hist) return;
                         const day = new Date(entry.t + offset * 1000).toISOString().slice(0, 10);
+                        if (!day || day >= today) return;
                         if (lastPrecipObs.precip.daily[day] == null) return;
                         const rain = round1(lastPrecipObs.precip.daily[day]);
                         if (entry.rain !== rain) { entry.rain = rain; added++; }
@@ -1874,7 +1875,7 @@
             let lastError = null;
             for (const model of chain) {
                 try {
-                    const res = await fetch(forecastUrl(lat, lon, model));
+                    const res = await fetch(forecastUrl(lat, lon, model), { cache: 'no-store' });
                     if (!res.ok) throw new Error('HTTP ' + res.status);
                     const data = await res.json();
                     if (!forecastUsable(data)) throw new Error('leer');
