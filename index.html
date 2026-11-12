@@ -732,15 +732,17 @@
             <div class="info-box">
                 <h3 data-i18n="sources">QUELLEN</h3>
                 <p><strong style="color:var(--accent-red);">Weather data by Open-Meteo.com</strong></p>
-                <p><strong>Deutscher Wetterdienst (DWD)</strong></p>
-                <p><strong>ECMWF</strong></p>
+                <div id="sources-dynamic">
+                    <p><strong>Deutscher Wetterdienst (DWD)</strong></p>
+                    <p><strong>ECMWF</strong></p>
+                </div>
             </div>
             <div class="info-box">
                 <h3 data-i18n="privacy">DATENSCHUTZ</h3>
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.21</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.22</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -779,7 +781,7 @@
                 search_placeholder: "Stadt suchen ...", my_location: "MEIN STANDORT",
                 current_location: "AKTUELLER STANDORT", favorites: "FAVORITEN",
                 language: "SPRACHE", display: "DARSTELLUNG", auto: "AUTO", light: "HELL", dark: "DUNKEL",
-                sources: "QUELLEN", privacy: "DATENSCHUTZ", privacy_text: "Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.",
+                sources: "QUELLEN", src_temp:"Temperatur jetzt",src_wind:"Wind jetzt",src_hourly:"Stundenwerte",src_daily:"Tageswerte",src_ens:"Ensemble (Unsicherheit)",src_rain:"Regenmenge",src_press:"Luftdruck/Feuchte",src_radar:"Radar",src_moon:"Mond",src_meas:"DWD-Messung",src_guess:"vermutet",src_d12:"Tag 1–2",src_d3:"ab Tag 3",src_none:"keine",src_past:"bisher",src_fc:"Vorhersage",src_calc:"eigene Berechnung", privacy: "DATENSCHUTZ", privacy_text: "Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.",
                 version: "Version",
                 log_title: "VERLAUF", log_open: "DIAGRAMM ÖFFNEN", log_export: "ALS DATEI SPEICHERN",
                 log_hint: "Der Verlauf wird nur für Favoriten (★) gespeichert. Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag gespeichert. Fehlende Tage werden bis zu 60 Tage nachgeladen.",
@@ -807,7 +809,7 @@
                 search_placeholder: "Search city ...", my_location: "MY LOCATION",
                 current_location: "CURRENT LOCATION", favorites: "FAVORITES",
                 language: "LANGUAGE", display: "APPEARANCE", auto: "AUTO", light: "LIGHT", dark: "DARK",
-                sources: "SOURCES", privacy: "PRIVACY", privacy_text: "No tracking, no analytics, no ads, no accounts. The app only requests weather services with coordinates. Favorites, location and forecasts remain on this device.",
+                sources: "SOURCES", src_temp:"Temperature now",src_wind:"Wind now",src_hourly:"Hourly values",src_daily:"Daily values",src_ens:"Ensemble (uncertainty)",src_rain:"Rainfall",src_press:"Pressure/humidity",src_radar:"Radar",src_moon:"Moon",src_meas:"DWD measurement",src_guess:"presumed",src_d12:"day 1–2",src_d3:"from day 3",src_none:"none",src_past:"so far",src_fc:"forecast",src_calc:"own calculation", privacy: "PRIVACY", privacy_text: "No tracking, no analytics, no ads, no accounts. The app only requests weather services with coordinates. Favorites, location and forecasts remain on this device.",
                 version: "Version",
                 log_title: "HISTORY", log_open: "OPEN CHART", log_export: "SAVE AS FILE",
                 log_hint: "History is only stored for favorite places (★). On open, temperature, sunshine, wind, pressure and precipitation are stored for this place.",
@@ -835,7 +837,7 @@
                 search_placeholder: "搜索城市 ...", my_location: "我的位置",
                 current_location: "当前位置", favorites: "收藏夹",
                 language: "语言", display: "显示", auto: "自动", light: "浅色", dark: "深色",
-                sources: "数据来源", privacy: "隐私", privacy_text: "无追踪，无分析，无广告，无账户。应用仅使用坐标请求天气服务。收藏、位置和预报保留在本设备上。",
+                sources: "数据来源", src_temp:"当前气温",src_wind:"当前风",src_hourly:"逐小时数据",src_daily:"每日数据",src_ens:"集合预报（不确定性）",src_rain:"降水量",src_press:"气压/湿度",src_radar:"雷达",src_moon:"月亮",src_meas:"DWD实测",src_guess:"推测",src_d12:"第1–2天",src_d3:"第3天起",src_none:"无",src_past:"已发生",src_fc:"预报",src_calc:"自行计算", privacy: "隐私", privacy_text: "无追踪，无分析，无广告，无账户。应用仅使用坐标请求天气服务。收藏、位置和预报保留在本设备上。",
                 version: "版本",
                 log_title: "记录", log_open: "打开图表", log_export: "保存为文件",
                 log_hint: "仅保存收藏地点（★）的记录。打开应用时会保存该地点的温度、日照、风速、气压和降水量。",
@@ -1880,6 +1882,7 @@
                     const data = await res.json();
                     if (!forecastUsable(data)) throw new Error('leer');
                     data.loadedModel = model || 'best_match';
+                    data.src = {};
                     if (model === 'icon_d2') await fillHourlyGaps(data, lat, lon);
                     return data;
                 } catch (error) {
@@ -1905,7 +1908,7 @@
                     if (j == null) return;
                     fields.forEach(field => {
                         if (!data.hourly[field]) data.hourly[field] = new Array(data.hourly.time.length).fill(null);
-                        if (data.hourly[field][i] == null && ec.hourly[field]?.[j] != null) data.hourly[field][i] = ec.hourly[field][j];
+                        if (data.hourly[field][i] == null && ec.hourly[field]?.[j] != null) { data.hourly[field][i] = ec.hourly[field][j]; data.src.hourlyFill = true; }
                     });
                 });
             } catch (e) {}
@@ -1923,6 +1926,7 @@
                 const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=16&models=ecmwf_ifs`);
                 if (res.ok) ecmwf = await res.json();
             } catch (e) {}
+            data.src.daily3 = ecmwf?.daily?.time ? 'ecmwf_ifs' : 'best_match';
             if (!ecmwf?.daily?.time) {
                 try {
                     const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=16`);
@@ -2026,7 +2030,8 @@
                             temp: tempOk ? Number(weather.temperature) : null,
                             wind: windOk ? Number(weather.wind_speed) : null,
                             windDir: windOk ? weather.wind_direction : null,
-                            timestamp: weather.timestamp
+                            timestamp: weather.timestamp,
+                            source: tempOk ? tempSource : windSource
                         };
                     }
                 }
@@ -2090,6 +2095,7 @@
                 const key = (data.current.time || '').slice(0, 13);
                 const index = data.hourly.time.findIndex(stamp => stamp.slice(0, 13) === key);
                 if (index >= 0) writeMixHour(data, index, fresh);
+                { const m = { k: 'meas', ...stationRef(fresh.source) }; data.src.cur = { temp: m, wind: fresh.wind != null ? m : { k: 'model', id: data.loadedModel } }; }
                 return 'DWD-Messung';
             }
             const nowKey = (data.current.time || '').slice(0, 13);
@@ -2099,6 +2105,7 @@
                 data.current.temperature_2m = row.temp;
                 if (row.wind != null) data.current.wind_speed_10m = row.wind;
                 if (row.windDir != null) data.current.wind_direction_10m = row.windDir;
+                { const m = { k: 'mosmix', ...stationRef(data.src.mosmix) }; data.src.cur = { temp: m, wind: row.wind != null ? m : { k: 'model', id: data.loadedModel } }; }
                 return 'MOSMIX';
             }
             if (data.loadedModel === 'ecmwf_ifs') return 'ECMWF';
@@ -2130,6 +2137,7 @@
                 inGermany ? fetch(`https://api.brightsky.dev/weather?lat=${lat}&lon=${lon}&date=${start}&last_date=${end}`).then(r => r.ok ? r.json() : null).catch(() => null) : null
             ]);
             if (ecmwf?.daily?.time && data.daily?.time) {
+                data.src.daily3 = 'ecmwf_ifs';
                 const byDate = {};
                 ecmwf.daily.time.forEach((day, index) => { byDate[day] = index; });
                 data.daily.time.forEach((day, index) => {
@@ -2142,7 +2150,8 @@
                 });
             }
             const typeById = {};
-            (sky?.sources || []).forEach(source => { typeById[source.id] = source.observation_type; });
+            const srcObj = {};
+            (sky?.sources || []).forEach(source => { typeById[source.id] = source.observation_type; srcObj[source.id] = source; });
             const hours = {};
             for (const row of sky?.weather || []) {
                 hours[hourKey(row.timestamp, offset)] = {
@@ -2150,6 +2159,7 @@
                     wind: row.wind_speed,
                     windDir: row.wind_direction,
                     precip: row.precipitation,
+                    sid: row.source_id,
                     measured: typeById[row.source_id] !== 'forecast',
                     code: conditionToCode(row.icon, row.condition)
                 };
@@ -2167,8 +2177,9 @@
                         if (!data.precipStation && row.precip != null) data.hourly.precipitation[i] = row.precip;
                         if (row.code != null) data.hourly.weather_code[i] = row.code;
                     } else if (startMs > now && !row.measured) {
+                        data.src.mosmix = data.src.mosmix || srcObj[row.sid] || null;
                         writeMixHour(data, i, row);
-                        if (row.precip != null) data.hourly.precipitation[i] = row.precip;
+                        if (row.precip != null) { data.hourly.precipitation[i] = row.precip; data.src.rainFc = 'mosmix'; }
                     }
                 }
             }
@@ -2197,9 +2208,11 @@
                 if (hours[forecastKey].wind != null) data.current.wind_speed_10m = hours[forecastKey].wind;
                 if (hours[forecastKey].windDir != null) data.current.wind_direction_10m = hours[forecastKey].windDir;
                 data.tempSource = 'MOSMIX';
+                { const m = { k: 'mosmix', ...stationRef(data.src.mosmix) }; data.src.cur = { temp: m, wind: hours[forecastKey].wind != null ? m : { k: 'model', id: data.loadedModel } }; }
             } else if (data.loadedModel === 'icon_d2') data.tempSource = 'ICON-D2';
             if (ens?.daily?.time && data.daily?.time) {
                 const members = Object.keys(ens.daily).filter(key => key.startsWith('temperature_2m_max'));
+                data.src.ens = true;
                 data.daily.unsure = data.daily.time.map(day => {
                     const index = ens.daily.time.indexOf(day);
                     if (index < 0 || members.length < 2) return false;
@@ -2219,11 +2232,13 @@
             ]);
             await applyEcmwfFromDay3(data, lat, lon).catch(() => {});
             const mosmixHours = await fetchMosmixHours(forecast, lat, lon, offset).catch(() => ({}));
+            data.src.mosmix = Object.keys(mosmixHours).length ? forecast : null;
             const touched = overlayMixHours(data, mosmixHours, measured.hours || {});
             applyTouchedDaily(data, touched);
             data.tempSource = applyCurrentMix(data, measured.fresh, mosmixHours);
             if (ens?.daily?.time && data.daily?.time) {
                 const members = Object.keys(ens.daily).filter(key => key.startsWith('temperature_2m_max'));
+                data.src.ens = true;
                 data.daily.unsure = data.daily.time.map(day => {
                     const index = ens.daily.time.indexOf(day);
                     if (index < 0 || members.length < 2) return false;
@@ -2404,9 +2419,48 @@
             return tied.join(' / ');
         }
 
+        const SRC_MODEL_NAMES = { icon_d2: 'ICON-D2', ecmwf_ifs: 'ECMWF IFS' };
+        const srcEsc = (v) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        function srcModelName(id) { return SRC_MODEL_NAMES[id] || 'Open-Meteo Best Match'; }
+        function stationRef(src) { return src && src.station_name ? { name: src.station_name, km: src.distance != null ? src.distance / 1000 : null } : {}; }
+        function srcText(o, short) {
+            if (!o) return t('src_none');
+            const place = (!short && o.name) ? ` · ${o.name}${o.km != null ? ' · ' + Math.round(o.km) + ' km' : ''}` : '';
+            if (o.k === 'meas') return t('src_meas') + place;
+            if (o.k === 'mosmix') return 'DWD MOSMIX' + place;
+            if (o.k === 'guess') return `${o.name} (${t('src_guess')})`;
+            return srcModelName(o.id);
+        }
+
+        // Quellenliste im Info-Bereich: zeigt nur, was fuer die aktuelle Anzeige wirklich benutzt wurde
+        function renderSources(data) {
+            const box = document.getElementById('sources-dynamic');
+            if (!box || !data?.src) return;
+            const s = data.src, model = data.loadedModel, cur = s.cur || {};
+            const hourly = [srcModelName(model) + (s.hourlyFill ? ' → ECMWF IFS' : '')];
+            if (s.mosmix) hourly.push('Temp/Wind: ' + srcText({ k: 'mosmix', ...stationRef(s.mosmix) }));
+            const daily = model === 'icon_d2'
+                ? `${srcModelName(model)} (${t('src_d12')}) · ${s.daily3 === 'ecmwf_ifs' ? 'ECMWF IFS' : 'Open-Meteo Best Match'} (${t('src_d3')})`
+                : srcModelName(model);
+            const rain = [];
+            if (data.precipStation?.name) rain.push(`${t('src_past')}: DWD ${data.precipStation.name} · ${Math.round(data.precipStation.distanceKm)} km`);
+            rain.push(`${t('src_fc')}: ${s.rainFc === 'mosmix' ? 'DWD MOSMIX' : srcModelName(model)}`);
+            const rows = [
+                [t('src_temp'), srcText(cur.temp)], [t('src_wind'), srcText(cur.wind)],
+                [t('src_hourly'), hourly.join(' · ')], [t('src_daily'), daily],
+                [t('src_ens'), s.ens ? 'ECMWF ENS (ifs025)' : t('src_none')], [t('src_rain'), rain.join(' · ')]
+            ];
+            if (data.station?.name) rows.push([t('src_press'), `DWD ${data.station.name}${data.station.distanceKm != null ? ' · ' + Math.round(data.station.distanceKm) + ' km' : ''}`]);
+            rows.push([t('src_radar'), inDwdCoverage() ? 'DWD' : 'RainViewer']);
+            rows.push([t('src_moon'), (moonApi ? 'Open-Meteo, ' : '') + t('src_calc')]);
+            box.innerHTML = rows.map(([k, v]) => `<p><span style="color:var(--text-muted);font-size:12px;">${srcEsc(k)}</span><br><strong>${srcEsc(v)}</strong></p>`).join('');
+        }
+
         function sourceLabel(data) {
-            if (!data?.tempSource) return '';
-            return `Wetterdaten: ${data.tempSource}`;
+            const cur = data?.src?.cur;
+            if (!cur) return data?.tempSource ? `Wetterdaten: ${data.tempSource}` : '';
+            const a = srcText(cur.temp, true), b = srcText(cur.wind, true);
+            return a === b ? `Temp/Wind: ${a}` : `Temp: ${a} · Wind: ${b}`;
         }
 
         function precipStationLabel(data) {
@@ -2434,6 +2488,8 @@
                 } catch (e) {
                     console.error('Niederschlagsstation nicht geladen', e);
                 }
+                data.src = data.src || {};
+                data.src.cur = { temp: { k: 'model', id: data.loadedModel }, wind: { k: 'model', id: data.loadedModel } };
                 if (isCompositeModel()) {
                     data.tempSource = data.loadedModel === 'ecmwf_ifs' ? 'ECMWF' : (data.loadedModel === 'icon_d2' ? 'ICON-D2' : 'Open-Meteo');
                     try {
@@ -2449,11 +2505,13 @@
                 
                 updateUI(data, name, region, timestamp);
                 appendWeatherLog(lat, lon, name, data, timestamp);
-                setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, isCompositeModel() ? sourceLabel(data) : '');
+                setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, sourceLabel(data));
                 if (!isCompositeModel()) {
                     identifyTempModel(lat, lon, data.current?.temperature_2m).then(model => {
                         if (currentLat !== lat || currentLon !== lon || isCompositeModel()) return;
                         data.tempSource = model;
+                        if (model !== 'Open-Meteo') data.src.cur = { temp: { k: 'guess', name: model }, wind: { k: 'model', id: 'best_match' } };
+                        renderSources(data);
                         localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
                         setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, sourceLabel(data));
                     }).catch(() => {});
@@ -3383,7 +3441,7 @@
                 });
                 moonApi = { key, fetchedAt: Date.now(), days };
                 moonApiLoading = false;
-                if (lastWeatherData) renderMoonList(lastWeatherData);
+                if (lastWeatherData) { renderMoonList(lastWeatherData); renderSources(lastWeatherData); }
             } catch (e) {
                 moonApiLoading = false; // Fallback: eigene Berechnung bleibt sichtbar
             }
@@ -3428,9 +3486,8 @@
                 const { past, future } = moonEventsAround(now);
                 const elong = moonElong(now);
                 const names = t('moon_phases');
-                // Name = zuletzt erreichte Phase (z. B. zwei Tage vor Neumond noch "Abnehmende Sichel")
-                const lastPast = past[past.length - 1];
-                const currentName = (Array.isArray(names) && lastPast) ? names[lastPast.k] : '';
+                // Name = naechstliegende Phase (+-22,5 Grad), passend zur angezeigten Mondscheibe
+                const currentName = Array.isArray(names) ? names[Math.round(elong / 45) % 8] : '';
                 const todayRow = rowHtml(`<strong>${t('today')}</strong><span>${currentName}</span>`, elong, timesFor(localDateParts(now, tz)), 'moon-today');
 
                 box.innerHTML = `
@@ -3489,6 +3546,7 @@
             const current = data.current;
             const daily = data.daily;
             const hourly = data.hourly;
+            renderSources(data);
 
             fitCityName(name);
             document.getElementById('city-region').innerText = region;
