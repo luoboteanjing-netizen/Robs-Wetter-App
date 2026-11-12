@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.19">
+    <link rel="manifest" href="manifest.json?v=2.20">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -279,12 +279,12 @@
         .hourly-item .temp { font-size: 14px; font-weight: 600; }
         .hourly-item .time { white-space: nowrap; }
         .hourly-line { display: block; width: 100%; height: 72px; }
-        #hourly-line { height: 86px; }
+        #hourly-line, .hourly-48 .hourly-line { height: 86px; }
         .hourly-line path { fill: none; stroke: var(--accent-red); }
         .hourly-dots { display: flex; height: 0; position: relative; top: -72px; pointer-events: none; }
-        #hourly-dots { top: -86px; }
+        #hourly-dots, .hourly-48 .hourly-dots { top: -86px; }
         .hourly-dot-slot { position: relative; flex: 0 0 calc(100cqi / 6); width: calc(100cqi / 6); height: 72px; }
-        #hourly-dots .hourly-dot-slot { height: 86px; }
+        #hourly-dots .hourly-dot-slot, .hourly-48 .hourly-dot-slot { height: 86px; }
         .hourly-dot {
             position: absolute; left: 50%; width: 7px; height: 7px; margin-left: -3.5px; margin-top: -3.5px;
             border-radius: 50%; background: var(--accent-red); box-shadow: 0 0 0 2px var(--card-bg);
@@ -302,7 +302,7 @@
         .hourly-rain .bar { width: 68%; background: #7eb6f0; border-radius: 4px 4px 0 0; }
         .hourly-legend { display: flex; gap: 14px; align-items: center; font-size: 11px; color: var(--text-muted); margin: 6px 0 0; }
         .hourly-legend i { display: inline-block; width: 10px; height: 10px; background: #7eb6f0; border-radius: 2px; margin-right: 4px; }
-        #hourly-winds { margin-top: 6px; }
+        #hourly-winds, .hourly-48 .hourly-winds { margin-top: 6px; }
         .hourly-wind {
             display: flex; align-items: center; justify-content: center; gap: 2px;
             font-size: 10px; color: var(--text-muted); padding: 2px 0 0;
@@ -740,7 +740,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.19</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.20</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -860,7 +860,7 @@
             }
         };
 
-        const APP_VERSION = '2.19';
+        const APP_VERSION = '2.20';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -2734,7 +2734,121 @@
             const box = document.createElement('div');
             box.className = 'day-detail week-detail';
             row.after(box);
-            renderThreeDayDetail(index, box, 'week-hour', false);
+            renderWeekHourDetail(index, box);
+        }
+
+        async function hourlyForDay(dateStr) {
+            const data = lastWeatherData;
+            const local = [];
+            for (let hour = 0; hour < 24; hour++) {
+                const stamp = `${dateStr}T${String(hour).padStart(2, '0')}:00`;
+                const i = data?.hourly?.time?.findIndex(time => time.slice(0, 16) === stamp) ?? -1;
+                if (i >= 0 && data.hourly.temperature_2m?.[i] != null) local.push({ stamp, i, source: data.hourly });
+            }
+            if (local.length >= 18 || data?.latitude == null) return local;
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${data.latitude}&longitude=${data.longitude}&hourly=temperature_2m,weather_code,precipitation,is_day,wind_speed_10m,wind_direction_10m&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`, { cache: 'no-store' });
+            if (!res.ok) return local;
+            const body = await res.json();
+            return (body.hourly?.time || []).slice(0, 24).map((stamp, i) => ({ stamp, i, source: body.hourly }));
+        }
+
+        async function renderWeekHourDetail(index, box) {
+            const data = lastWeatherData;
+            if (!box || !data?.daily?.time?.[index] || !data.hourly?.time) {
+                if (box) box.hidden = true;
+                return;
+            }
+            const daily = data.daily;
+            const hourly = data.hourly;
+            const dateStr = daily.time[index];
+            const date = new Date(dateStr + 'T12:00:00');
+            const nowKey = (data.current?.time || '').slice(0, 13);
+            const hours = await hourlyForDay(dateStr);
+            if (selectedWeekIndex !== index) return;
+            const slots = hours.filter(row => row.source.temperature_2m?.[row.i] != null).map(row => {
+                const source = row.source;
+                const i = row.i;
+                const hour = Number(row.stamp.slice(11, 13));
+                return {
+                    hour,
+                    index: hourly.time.findIndex(time => time.slice(0, 16) === row.stamp.slice(0, 16)),
+                    isDay: source.is_day?.[i] === 1,
+                    isNow: row.stamp.slice(0, 13) === nowKey,
+                    temp: Math.round(source.temperature_2m[i]),
+                    code: Number(source.weather_code?.[i]),
+                    rain: Number(source.precipitation?.[i] || 0),
+                    wind: Math.round(source.wind_speed_10m?.[i] ?? 0),
+                    arrow: Number(source.wind_direction_10m?.[i] ?? 0) + 90
+                };
+            });
+            const uid = 'week-hour';
+            box.innerHTML = `
+                <div class="hourly-scroll hourly-48" id="${uid}-scroll">
+                    <div class="hourly-track has-day-markers" id="${uid}-track" style="--hours:${Math.max(slots.length, 6)}">
+                        <div class="hourly-items">
+                            ${slots.map(slot => `
+                                <div class="hourly-item ${slot.isDay ? '' : 'is-night'}">
+                                    <div class="time ${slot.isNow ? 'now' : ''}">${slot.isNow ? t('now') : slot.hour + (currentLang === 'zh' ? '时' : ' Uhr')}</div>
+                                    <div class="icon">${getWeatherIconHtml(slot.code, slot.isDay ? 1 : 0)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <svg id="${uid}-line" class="hourly-line" aria-hidden="true"></svg>
+                        <div class="hourly-dots" id="${uid}-dots"></div>
+                        <div class="hourly-rains" id="${uid}-rains"></div>
+                        <div class="hourly-winds">
+                            ${slots.map(slot => `
+                                <div class="hourly-wind">
+                                    <span class="wind-arrow" style="transform: rotate(${slot.arrow}deg);">➤</span>
+                                    ${slot.wind}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="hourly-legend"><span><i></i>Regen mm/h</span><span>Wind km/h</span></div>
+            `;
+            box.hidden = false;
+            const track = document.getElementById(`${uid}-track`);
+            if (track && slots.length) {
+                const marker = document.createElement('div');
+                marker.className = 'day-marker';
+                marker.style.left = '0';
+                marker.innerHTML = `<span>${t('days')[date.getDay()]} ${getFormattedDate(date, 'day')}</span>`;
+                track.appendChild(marker);
+                const placeSun = (iso, rising) => {
+                    if (!iso || !iso.startsWith(dateStr)) return;
+                    const hh = Number(iso.slice(11, 13));
+                    const mm = Number(iso.slice(14, 16)) || 0;
+                    const slot = slots.findIndex(item => item.hour === hh);
+                    if (slot < 0) return;
+                    const sun = document.createElement('div');
+                    sun.className = 'day-marker sun-marker';
+                    sun.style.left = `calc(100cqi / 6 * ${slot + mm / 60})`;
+                    sun.innerHTML = `<span>☀️${rising ? '↑' : '↓'} ${iso.slice(11, 16)}</span>`;
+                    track.appendChild(sun);
+                };
+                placeSun(daily.sunrise?.[index], true);
+                placeSun(daily.sunset?.[index], false);
+            }
+            drawHourlyLine(slots.map(slot => slot.temp), `${uid}-line`, `${uid}-dots`, 86);
+            const rains = document.getElementById(`${uid}-rains`);
+            if (rains) rains.innerHTML = hourlyRainHtml(slots.map(slot => slot.rain));
+            const nowSlot = slots.findIndex(slot => slot.isNow);
+            if (nowSlot >= 0) centerHourStrip(`${uid}-scroll`, nowSlot);
+        }
+
+        function centerHourStrip(scrollerId, nowIndex) {
+            const scroller = document.getElementById(scrollerId);
+            if (!scroller || nowIndex < 0) return;
+            const place = () => {
+                const width = scroller.clientWidth;
+                if (width < 20) return;
+                const slot = width / 6;
+                scroller.scrollLeft = Math.max(0, (nowIndex + 0.5) * slot - width / 2);
+            };
+            requestAnimationFrame(place);
+            setTimeout(place, 60);
         }
 
         document.getElementById('week-container').onclick = (event) => {
@@ -2788,14 +2902,13 @@
             }
         }
 
-        function drawHourlyLine(temps, lineId = 'hourly-line', dotsId = 'hourly-dots') {
+        function drawHourlyLine(temps, lineId = 'hourly-line', dotsId = 'hourly-dots', height = lineId === 'hourly-line' ? 86 : 72) {
             const svg = document.getElementById(lineId);
             if (!svg) return;
             if (temps.length < 2) {
                 svg.innerHTML = '';
                 return;
             }
-            const height = lineId === 'hourly-line' ? 86 : 72;
             const slot = 100;
             const min = Math.min(...temps);
             const max = Math.max(...temps);
@@ -2818,16 +2931,20 @@
             }
         }
 
-        function renderHourlyRain(values) {
-            const host = document.getElementById('hourly-rains');
-            if (!host) return;
+        function hourlyRainHtml(values) {
             const max = Math.max(0.2, ...values.map(value => Number(value) || 0));
-            host.innerHTML = values.map(value => {
+            return values.map(value => {
                 const mm = Number(value) || 0;
                 const height = mm >= 0.05 ? Math.max(4, Math.round((mm / max) * 40)) : 2;
                 const label = mm >= 0.05 ? (mm >= 10 ? String(Math.round(mm)) : mm.toFixed(1).replace('.', currentLang === 'de' ? ',' : '.')) : '';
                 return `<div class="hourly-rain"><span class="val">${label}</span><span class="bar" style="height:${height}px"></span></div>`;
             }).join('');
+        }
+
+        function renderHourlyRain(values) {
+            const host = document.getElementById('hourly-rains');
+            if (!host) return;
+            host.innerHTML = hourlyRainHtml(values);
         }
 
         function pressureLine(current, hourly, nowKey) {
