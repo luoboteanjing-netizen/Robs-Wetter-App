@@ -1880,12 +1880,35 @@
                     const data = await res.json();
                     if (!forecastUsable(data)) throw new Error('leer');
                     data.loadedModel = model || 'best_match';
+                    if (model === 'icon_d2') await fillHourlyGaps(data, lat, lon);
                     return data;
                 } catch (error) {
                     lastError = error;
                 }
             }
             throw lastError || new Error('keine Vorhersage');
+        }
+
+        // ICON-D2 liefert nur ca. 48 h. Fehlende Stundenwerte (null) kommen von ECMWF IFS,
+        // vorhandene ICON-D2-Werte bleiben unveraendert.
+        async function fillHourlyGaps(data, lat, lon) {
+            try {
+                const fields = ['temperature_2m', 'weather_code', 'precipitation', 'is_day', 'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m'];
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=${fields.join(',')}&timezone=auto&past_days=1&forecast_days=16&models=ecmwf_ifs`, { cache: 'no-store' });
+                if (!res.ok) return;
+                const ec = await res.json();
+                if (!ec?.hourly?.time || !data.hourly?.time) return;
+                const byTime = {};
+                ec.hourly.time.forEach((stamp, i) => { byTime[stamp] = i; });
+                data.hourly.time.forEach((stamp, i) => {
+                    const j = byTime[stamp];
+                    if (j == null) return;
+                    fields.forEach(field => {
+                        if (!data.hourly[field]) data.hourly[field] = new Array(data.hourly.time.length).fill(null);
+                        if (data.hourly[field][i] == null && ec.hourly[field]?.[j] != null) data.hourly[field][i] = ec.hourly[field][j];
+                    });
+                });
+            } catch (e) {}
         }
 
         function copyDaily(target, source, field, targetIndex, sourceIndex) {
@@ -2102,7 +2125,7 @@
             const end = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
             const inGermany = lat >= 47 && lat <= 55.2 && lon >= 5.5 && lon <= 15.5;
             const [ecmwf, ens, sky] = await Promise.all([
-                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,precipitation_probability_max,sunrise,sunset&timezone=auto&forecast_days=16&models=ecmwf_ifs`).then(r => r.ok ? r.json() : null).catch(() => null),
+                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=16&models=ecmwf_ifs`).then(r => r.ok ? r.json() : null).catch(() => null),
                 fetch(`https://ensemble-api.open-meteo.com/v1/ensemble?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max&models=ecmwf_ifs025_ensemble&timezone=auto&forecast_days=10`).then(r => r.ok ? r.json() : null).catch(() => null),
                 inGermany ? fetch(`https://api.brightsky.dev/weather?lat=${lat}&lon=${lon}&date=${start}&last_date=${end}`).then(r => r.ok ? r.json() : null).catch(() => null) : null
             ]);
@@ -2112,7 +2135,10 @@
                 data.daily.time.forEach((day, index) => {
                     const sourceIndex = byDate[day];
                     if (sourceIndex == null) return;
-                    ['weather_code', 'precipitation_probability_max', 'sunrise', 'sunset'].forEach(field => copyDaily(data.daily, ecmwf.daily, field, index, sourceIndex));
+                    const fromDay3 = day >= shiftDayKey(dayKeyFromOffset(offset), 2);
+                    const legacyFields = ['weather_code', 'precipitation_probability_max', 'sunrise', 'sunset'];
+                    if (fromDay3) legacyFields.push('temperature_2m_max', 'temperature_2m_min', 'wind_speed_10m_max');
+                    legacyFields.forEach(field => copyDaily(data.daily, ecmwf.daily, field, index, sourceIndex));
                 });
             }
             const typeById = {};
@@ -2155,11 +2181,11 @@
                         if (data.hourly.temperature_2m[i] != null) temps.push(data.hourly.temperature_2m[i]);
                         if (data.hourly.wind_speed_10m[i] != null) winds.push(data.hourly.wind_speed_10m[i]);
                     });
-                    if (temps.length) {
+                    if (temps.length >= 18) {
                         data.daily.temperature_2m_max[index] = Math.max(...temps);
                         data.daily.temperature_2m_min[index] = Math.min(...temps);
                     }
-                    if (winds.length && data.daily.wind_speed_10m_max) data.daily.wind_speed_10m_max[index] = Math.max(...winds);
+                    if (winds.length >= 18 && data.daily.wind_speed_10m_max) data.daily.wind_speed_10m_max[index] = Math.max(...winds);
                 });
             }
             const nowKey = (data.current?.time || '').slice(0, 13);
@@ -2541,8 +2567,9 @@
                     if (!stamp.startsWith(dateStr)) continue;
                     if (skipPast && currentTime && stamp < currentTime) continue;
                     const hour = Number(stamp.slice(11, 13));
-                    const dayFlag = hourly.is_day ? hourly.is_day[i] === 1 : (hour >= 7 && hour <= 19);
+                    const dayFlag = hourly.is_day?.[i] != null ? hourly.is_day[i] === 1 : (hour >= 7 && hour <= 19);
                     if (daytimeOnly && !dayFlag) continue;
+                    if (hourly.weather_code?.[i] == null) continue;
                     const code = Number(hourly.weather_code[i]);
                     if (!Number.isNaN(code)) out.push(code);
                 }
@@ -2552,7 +2579,7 @@
             let samples = collect(true, true);
             if (samples.length < 3) samples = collect(false, true);
             if (!samples.length) samples = collect(false, false);
-            if (!samples.length) return fallback;
+            if (!samples.length || (samples.length < 4 && !Number.isNaN(fallback))) return fallback;
 
             const precip = samples.filter(isPrecipCode);
             return (precip.length / samples.length >= 0.28) ? modeValue(precip) : modeValue(samples);
@@ -2744,7 +2771,7 @@
                 const i = data?.hourly?.time?.findIndex(time => time.slice(0, 16) === stamp) ?? -1;
                 if (i >= 0 && data.hourly.temperature_2m?.[i] != null) local.push({ stamp, i, source: data.hourly });
             }
-            if (local.length || data?.latitude == null) return local;
+            if (local.length >= 23 || data?.latitude == null) return local;
             const today = (data.current?.time || '').slice(0, 10);
             const model = data.loadedModel === 'icon_d2' && dateStr >= shiftDayKey(today, 2) ? 'ecmwf_ifs' : (data.loadedModel && data.loadedModel !== 'best_match' ? data.loadedModel : '');
             const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${data.latitude}&longitude=${data.longitude}&hourly=temperature_2m,weather_code,precipitation,is_day,wind_speed_10m,wind_direction_10m&timezone=auto&start_date=${dateStr}&end_date=${dateStr}${model ? '&models=' + model : ''}`, { cache: 'no-store' });
@@ -2776,7 +2803,7 @@
                     isDay: source.is_day?.[i] === 1,
                     isNow: row.stamp.slice(0, 13) === nowKey,
                     temp: Math.round(source.temperature_2m[i]),
-                    code: Number(source.weather_code?.[i]),
+                    code: Number(source.weather_code?.[i] ?? daily.weather_code?.[index]),
                     rain: Number(source.precipitation?.[i] || 0),
                     wind: Math.round(source.wind_speed_10m?.[i] ?? 0),
                     arrow: Number(source.wind_direction_10m?.[i] ?? 0) + 90
