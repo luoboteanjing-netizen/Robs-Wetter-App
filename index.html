@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.25">
+    <link rel="manifest" href="manifest.json?v=2.26">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Panda Wetter">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -726,6 +728,14 @@
                     <button class="toggle-btn" onclick="setTheme('dark')" id="btn-theme-dark" data-i18n="dark">DUNKEL</button>
                 </div>
             </div>
+            <div class="info-box" id="install-box">
+                <h3 data-i18n="install_title">APP INSTALLIEREN</h3>
+                <p id="install-text" data-i18n="install_ask">Möchtest du Panda Wetter auf diesem Gerät installieren?</p>
+                <div class="model-group" id="install-actions">
+                    <button type="button" class="toggle-btn" id="install-yes" onclick="installApp()" data-i18n="install_yes">JA</button>
+                    <button type="button" class="toggle-btn" id="install-no" onclick="dismissInstall()" data-i18n="install_no">NEIN</button>
+                </div>
+            </div>
             <div class="info-box">
                 <h3 data-i18n="log_title">VERLAUF</h3>
                 <p data-i18n="log_hint">Der Verlauf wird nur für Favoriten (★) gespeichert. Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag gespeichert. Fehlende Tage werden bis zu 60 Tage nachgeladen.</p>
@@ -744,7 +754,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.25</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.26</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -785,6 +795,13 @@
                 language: "SPRACHE", display: "DARSTELLUNG", auto: "AUTO", light: "HELL", dark: "DUNKEL",
                 sources: "QUELLEN", src_temp:"Temperatur jetzt",src_wind:"Wind jetzt",src_hourly:"Stundenwerte",src_daily:"Tageswerte",src_ens:"Ensemble (Unsicherheit)",src_rain:"Regenmenge",src_press:"Luftdruck/Feuchte",src_radar:"Radar",src_moon:"Mond",src_meas:"DWD-Messung",src_guess:"vermutet",src_d12:"Tag 1–2",src_d3:"ab Tag 3",src_none:"keine",src_past:"bisher",src_fc:"Vorhersage",src_calc:"eigene Berechnung", privacy: "DATENSCHUTZ", privacy_text: "Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.",
                 version: "Version",
+                install_title: "APP INSTALLIEREN",
+                install_ask: "Möchtest du Panda Wetter auf diesem Gerät installieren?",
+                install_yes: "JA",
+                install_no: "NEIN",
+                install_done: "Die App ist bereits installiert.",
+                install_ios: "Tippe im Browser auf Teilen und dann auf „Zum Home-Bildschirm“.",
+                install_unavailable: "Dieser Browser bietet die Installation gerade nicht an.",
                 log_title: "VERLAUF", log_open: "DIAGRAMM ÖFFNEN", log_export: "ALS DATEI SPEICHERN",
                 log_hint: "Der Verlauf wird nur für Favoriten (★) gespeichert. Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag gespeichert. Fehlende Tage werden bis zu 60 Tage nachgeladen.",
                 log_note: "Gespeichert auf diesem Gerät, ein Verlauf pro Ort. Export schreibt eine echte Datei.",
@@ -813,6 +830,13 @@
                 language: "LANGUAGE", display: "APPEARANCE", auto: "AUTO", light: "LIGHT", dark: "DARK",
                 sources: "SOURCES", src_temp:"Temperature now",src_wind:"Wind now",src_hourly:"Hourly values",src_daily:"Daily values",src_ens:"Ensemble (uncertainty)",src_rain:"Rainfall",src_press:"Pressure/humidity",src_radar:"Radar",src_moon:"Moon",src_meas:"DWD measurement",src_guess:"presumed",src_d12:"day 1–2",src_d3:"from day 3",src_none:"none",src_past:"so far",src_fc:"forecast",src_calc:"own calculation", privacy: "PRIVACY", privacy_text: "No tracking, no analytics, no ads, no accounts. The app only requests weather services with coordinates. Favorites, location and forecasts remain on this device.",
                 version: "Version",
+                install_title: "INSTALL APP",
+                install_ask: "Do you want to install Panda Weather on this device?",
+                install_yes: "YES",
+                install_no: "NO",
+                install_done: "The app is already installed.",
+                install_ios: "In the browser, tap Share, then Add to Home Screen.",
+                install_unavailable: "This browser is not offering installation right now.",
                 log_title: "HISTORY", log_open: "OPEN CHART", log_export: "SAVE AS FILE",
                 log_hint: "History is only stored for favorite places (★). On open, temperature, sunshine, wind, pressure and precipitation are stored for this place.",
                 log_note: "Stored on this device, one history per place. Export writes a real file.",
@@ -841,6 +865,13 @@
                 language: "语言", display: "显示", auto: "自动", light: "浅色", dark: "深色",
                 sources: "数据来源", src_temp:"当前气温",src_wind:"当前风",src_hourly:"逐小时数据",src_daily:"每日数据",src_ens:"集合预报（不确定性）",src_rain:"降水量",src_press:"气压/湿度",src_radar:"雷达",src_moon:"月亮",src_meas:"DWD实测",src_guess:"推测",src_d12:"第1–2天",src_d3:"第3天起",src_none:"无",src_past:"已发生",src_fc:"预报",src_calc:"自行计算", privacy: "隐私", privacy_text: "无追踪，无分析，无广告，无账户。应用仅使用坐标请求天气服务。收藏、位置和预报保留在本设备上。",
                 version: "版本",
+                install_title: "安装应用",
+                install_ask: "要在这台设备上安装熊猫天气吗？",
+                install_yes: "是",
+                install_no: "否",
+                install_done: "应用已安装。",
+                install_ios: "在浏览器中点分享，然后选择添加到主屏幕。",
+                install_unavailable: "此浏览器目前不提供安装。",
                 log_title: "记录", log_open: "打开图表", log_export: "保存为文件",
                 log_hint: "仅保存收藏地点（★）的记录。打开应用时会保存该地点的温度、日照、风速、气压和降水量。",
                 log_note: "保存在本设备上，每个地点一份记录。导出会写成真正的文件。",
@@ -864,7 +895,7 @@
             }
         };
 
-        const APP_VERSION = '2.25';
+        const APP_VERSION = '2.26';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -898,6 +929,7 @@
             }
             updateFavList();
             setStatus(cachedWhen ? `${t('stand')} ${cachedWhen}` : t('stand') + ' ' + formatTime(new Date()), false, cachedSub);
+            updateInstallBox();
         }
 
         // --- 2. STATE ---
@@ -937,7 +969,69 @@
                 setStatus(t('offline'), false);
             }
             checkIfCurrentIsFav();
+            registerAppInstall();
         };
+
+        let installPrompt = null;
+
+        function isInstalledApp() {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        }
+
+        function updateInstallBox() {
+            const box = document.getElementById('install-box');
+            const text = document.getElementById('install-text');
+            const actions = document.getElementById('install-actions');
+            if (!box || !text || !actions) return;
+            if (sessionStorage.getItem('panda_install_no') === '1' && !isInstalledApp()) {
+                box.hidden = true;
+                return;
+            }
+            box.hidden = false;
+            if (isInstalledApp()) {
+                text.textContent = t('install_done');
+                actions.hidden = true;
+                return;
+            }
+            text.textContent = t('install_ask');
+            actions.hidden = false;
+        }
+
+        async function installApp() {
+            if (installPrompt) {
+                installPrompt.prompt();
+                const choice = await installPrompt.userChoice;
+                installPrompt = null;
+                if (choice.outcome === 'accepted') updateInstallBox();
+                return;
+            }
+            const text = document.getElementById('install-text');
+            const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+            if (text) text.textContent = ios ? t('install_ios') : t('install_unavailable');
+        }
+
+        function dismissInstall() {
+            sessionStorage.setItem('panda_install_no', '1');
+            const box = document.getElementById('install-box');
+            if (box) box.hidden = true;
+        }
+
+        function registerAppInstall() {
+            window.addEventListener('beforeinstallprompt', (event) => {
+                event.preventDefault();
+                installPrompt = event;
+                sessionStorage.removeItem('panda_install_no');
+                updateInstallBox();
+            });
+            window.addEventListener('appinstalled', () => {
+                installPrompt = null;
+                updateInstallBox();
+            });
+            if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+                navigator.serviceWorker.register('sw.js').catch(() => {});
+            }
+            updateInstallBox();
+        }
 
         function restoreCachedForecast() {
             const raw = localStorage.getItem('panda_last_weather');
