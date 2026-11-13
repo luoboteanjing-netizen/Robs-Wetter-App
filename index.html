@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.22">
+    <link rel="manifest" href="manifest.json?v=2.25">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -147,7 +147,8 @@
             display: flex;
             align-items: flex-start;
             flex: 0 0 auto;
-            z-index: 1;
+            position: relative;
+            z-index: 11;
             font-family: "Libre Franklin Variable", "Libre Franklin", var(--font-family);
             font-size: 88px;
             font-weight: 800;
@@ -186,7 +187,7 @@
         }
         
         /* Icon Container Rechts */
-        .weather-icon-main { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; transform: translateY(-46px); }
+        .weather-icon-main { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; transform: translateY(-46px); position: relative; z-index: 1; }
         .weather-icon-main img, .weather-icon-main svg, .weather-icon-main .wx-icon { width: 100%; height: 100%; object-fit: contain; display: block; }
 
         .weather-details { padding: 0 20px 20px 20px; }
@@ -534,7 +535,7 @@
                 <span class="temp-huge" id="current-temp">-</span><span class="temp-degree">°</span>
             </div>
             <!-- Das große Panda-Bild (ID für JS hinzugefügt) -->
-            <img src="clear-day.png" alt="Panda" class="frog-img" id="main-panda-img" onerror="this.style.display='none'">
+            <img alt="Panda" class="frog-img" id="main-panda-img" style="display:none" onerror="this.style.display='none'">
             <div class="weather-icon-main" id="current-icon"></div>
         </div>
 
@@ -743,7 +744,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.22</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.25</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -863,7 +864,7 @@
             }
         };
 
-        const APP_VERSION = '2.22';
+        const APP_VERSION = '2.25';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -3572,8 +3573,14 @@
             // --- GROSSES PANDA BILD ZUWEISEN ---
             const pandaIconName = getMeteoconUrl(current.weather_code, current.is_day);
             const mainPandaImg = document.getElementById('main-panda-img');
-            mainPandaImg.src = `${pandaIconName}.png`;
-            mainPandaImg.style.display = 'block'; // Wieder einblenden, falls es vorher einen Fehler hatte
+            const pandaSrc = `${pandaIconName}.png`;
+            mainPandaImg.onload = () => { mainPandaImg.style.display = 'block'; };
+            if (mainPandaImg.getAttribute('src') !== pandaSrc) {
+                mainPandaImg.style.display = 'none';
+                mainPandaImg.src = pandaSrc;
+            } else if (mainPandaImg.complete && mainPandaImg.naturalWidth) {
+                mainPandaImg.style.display = 'block';
+            }
 
             // --- TENDENZ: Uhrzeit nur in der Box darunter ---
             const now = new Date();
