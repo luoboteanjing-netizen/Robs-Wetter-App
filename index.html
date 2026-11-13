@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.21">
+    <link rel="manifest" href="manifest.json?v=2.22">
     <link rel="apple-touch-icon" href="icon.png">
     <title>Panda Wetter</title>
     
@@ -161,6 +161,7 @@
             width: auto;
             position: static;
         }
+        .temp-huge.single { margin-left: 0.45em; }
         .temp-degree {
             font-family: inherit;
             font-size: 0.60em;
@@ -185,7 +186,7 @@
         }
         
         /* Icon Container Rechts */
-        .weather-icon-main { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; transform: translateY(-28px); }
+        .weather-icon-main { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; transform: translateY(-36px); }
         .weather-icon-main img, .weather-icon-main svg, .weather-icon-main .wx-icon { width: 100%; height: 100%; object-fit: contain; display: block; }
 
         .weather-details { padding: 0 20px 20px 20px; }
@@ -862,7 +863,7 @@
             }
         };
 
-        const APP_VERSION = '2.21';
+        const APP_VERSION = '2.22';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -3554,7 +3555,10 @@
             document.getElementById('orte-current-city').innerText = name;
             document.getElementById('orte-current-temp').innerHTML = `${Math.round(current.temperature_2m)}° <span>${formatTime(new Date(timestamp))}</span>`;
 
-            document.getElementById('current-temp').innerText = Math.round(current.temperature_2m);
+            const tempEl = document.getElementById('current-temp');
+            const tempText = String(Math.round(current.temperature_2m));
+            tempEl.innerText = tempText;
+            tempEl.classList.toggle('single', tempText.replace('-', '').length === 1);
             document.getElementById('current-icon').innerHTML = getWeatherIconHtml(current.weather_code, current.is_day);
             document.getElementById('current-condition').innerText = getWeatherText(current.weather_code);
             document.getElementById('feels-like').innerText = Math.round(current.apparent_temperature) + '°';
