@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.26">
+    <link rel="manifest" href="manifest.json?v=2.27">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
     <link rel="apple-touch-icon" href="icon.png">
@@ -717,8 +717,10 @@
                     <button type="button" class="toggle-btn" id="btn-model-best" onclick="setWeatherModel('best')">MODELL 1</button>
                     <button type="button" class="toggle-btn" id="btn-model-mix" onclick="setWeatherModel('mix')">MODELL 2</button>
                     <button type="button" class="toggle-btn" id="btn-model-gated" onclick="setWeatherModel('gated')">MODELL 3</button>
+                    <button type="button" class="toggle-btn" id="btn-model-owm" onclick="setWeatherModel('owm')">MODELL 4</button>
                 </div>
                 <p id="model-hint" class="log-note"></p>
+                <input type="password" id="owm-key" placeholder="OpenWeather API-Key (nur Modell 4)" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--text-muted);background:transparent;color:inherit;font-size:13px;">
             </div>
             <div class="info-box">
                 <h3 data-i18n="display">DARSTELLUNG</h3>
@@ -754,7 +756,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.26</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.27</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -1908,7 +1910,7 @@
         // (die liegt oft hoeher und ist zu kalt).
         function weatherModel() {
             const model = localStorage.getItem('panda_model');
-            return model === 'mix' || model === 'gated' ? model : 'best';
+            return model === 'mix' || model === 'gated' || model === 'owm' ? model : 'best';
         }
 
         function isCompositeModel() {
@@ -1919,21 +1921,171 @@
             const hints = {
                 best: 'Open-Meteo Best Match',
                 mix: 'Stunden: ICON-D2 · Tage: ECMWF IFS · Temp/Wind: MOSMIX · Regen: DWD-Station · Unsicherheit: ECMWF ENS',
+                owm: 'OpenWeather (One Call 3.0, sonst 2.5): Jetzt, Stunden, Tage · Rest: Open-Meteo Best Match · Regen bisher: DWD-Station',
                 gated: '0–48 h: ICON-D2 · ab Tag 3: ECMWF IFS · Temp/Wind: MOSMIX nur bis 20 km und 100 m · Jetzt: Messung bis 40 min · Regen: DWD-Station'
             };
-            ['best', 'mix', 'gated'].forEach(id => {
+            ['best', 'mix', 'gated', 'owm'].forEach(id => {
                 const button = document.getElementById('btn-model-' + id);
                 if (button) button.classList.toggle('active', model === id);
             });
             const hint = document.getElementById('model-hint');
             if (hint) hint.textContent = hints[model] || hints.best;
+            const keyField = document.getElementById('owm-key');
+            if (keyField && !keyField.dataset.init) {
+                keyField.dataset.init = '1';
+                keyField.value = localStorage.getItem('panda_owm_key') || '';
+                keyField.onchange = () => {
+                    localStorage.setItem('panda_owm_key', keyField.value.trim());
+                    if (weatherModel() === 'owm') fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
+                };
+            }
         }
 
         function setWeatherModel(model) {
-            const next = model === 'mix' || model === 'gated' ? model : 'best';
+            const next = model === 'mix' || model === 'gated' || model === 'owm' ? model : 'best';
             localStorage.setItem('panda_model', next);
             highlightWeatherModel(next);
             fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
+        }
+
+        // --- MODELL 4: OpenWeather (Overlay auf Open-Meteo Best Match) ---
+        function owmCode(id) {
+            id = Number(id);
+            if (id >= 200 && id < 300) return 95;
+            if (id >= 300 && id < 400) return 53;
+            if (id === 500) return 61;
+            if (id === 501) return 63;
+            if (id >= 502 && id < 511) return 65;
+            if (id === 511 || (id >= 611 && id <= 616)) return 67;
+            if (id === 520) return 80;
+            if (id === 521 || id === 531) return 81;
+            if (id === 522) return 82;
+            if (id === 600) return 71;
+            if (id === 601) return 73;
+            if (id === 602) return 75;
+            if (id === 620 || id === 621) return 85;
+            if (id === 622) return 86;
+            if ([701, 711, 721, 741].includes(id)) return 45;
+            if (id === 800) return 0;
+            if (id === 801) return 1;
+            if (id === 802) return 2;
+            return 3;
+        }
+
+        async function owmFetch(lat, lon, key) {
+            const base = `lat=${lat}&lon=${lon}&units=metric&appid=${encodeURIComponent(key)}`;
+            const one = await fetch(`https://api.openweathermap.org/data/3.0/onecall?${base}&exclude=minutely,alerts`);
+            if (one.ok) return { api: '3.0', body: await one.json() };
+            if (one.status !== 401 && one.status !== 403) throw new Error('HTTP ' + one.status);
+            const [cur, fc] = await Promise.all([
+                fetch(`https://api.openweathermap.org/data/2.5/weather?${base}`),
+                fetch(`https://api.openweathermap.org/data/2.5/forecast?${base}`)
+            ]);
+            if (cur.status === 401 || fc.status === 401) throw new Error('API-Key ungültig oder noch nicht aktiv (neue Keys brauchen bis zu 2 h)');
+            if (!cur.ok || !fc.ok) throw new Error('HTTP ' + (cur.ok ? fc.status : cur.status));
+            return { api: '2.5', cur: await cur.json(), fc: await fc.json() };
+        }
+
+        function owmNote(message) {
+            const hint = document.getElementById('model-hint');
+            if (hint) hint.textContent = 'OpenWeather: ' + message;
+        }
+
+        async function applyOpenWeatherModel(data, lat, lon) {
+            const key = (localStorage.getItem('panda_owm_key') || '').trim();
+            if (!key) { owmNote('API-Key fehlt, es werden Open-Meteo-Daten gezeigt'); return; }
+            try {
+                const res = await owmFetch(lat, lon, key);
+                const off = data.utc_offset_seconds || 0;
+                const local = (dt, len) => new Date((dt + off) * 1000).toISOString().slice(0, len);
+                const norm = (x) => ({
+                    dt: x.dt, temp: x.temp ?? x.main?.temp, feels: x.feels_like ?? x.main?.feels_like,
+                    hum: x.humidity ?? x.main?.humidity, press: x.pressure ?? x.main?.pressure,
+                    wind: x.wind_speed ?? x.wind?.speed, deg: x.wind_deg ?? x.wind?.deg, gust: x.wind_gust ?? x.wind?.gust,
+                    code: owmCode(x.weather?.[0]?.id), pop: x.pop,
+                    rain: ((x.rain?.['1h'] ?? x.rain?.['3h'] / 3) || 0) + ((x.snow?.['1h'] ?? x.snow?.['3h'] / 3) || 0)
+                });
+                let cur, hours, days = [];
+                if (res.api === '3.0') {
+                    cur = norm(res.body.current);
+                    hours = (res.body.hourly || []).map(norm);
+                    days = (res.body.daily || []).map(d => ({ day: local(d.dt, 10), max: d.temp.max, min: d.temp.min, pop: d.pop, wind: d.wind_speed, code: owmCode(d.weather?.[0]?.id), rise: d.sunrise, set: d.sunset }));
+                } else {
+                    cur = norm(res.cur);
+                    hours = (res.fc.list || []).map(norm);
+                    const by = {};
+                    hours.forEach(x => { (by[local(x.dt, 10)] = by[local(x.dt, 10)] || []).push(x); });
+                    Object.entries(by).forEach(([day, xs]) => {
+                        if (xs.length < 6) return; // nur vollstaendige Tage
+                        const noon = xs.find(x => Number(local(x.dt, 13).slice(11)) >= 12) || xs[0];
+                        days.push({ day, max: Math.max(...xs.map(x => x.temp)), min: Math.min(...xs.map(x => x.temp)), pop: Math.max(...xs.map(x => x.pop || 0)), wind: Math.max(...xs.map(x => x.wind || 0)), code: noon.code });
+                    });
+                }
+                if (!hours.length) throw new Error('keine Stundenwerte erhalten');
+                const r1 = (v) => Math.round(v * 10) / 10;
+                const H = data.hourly, idx = {};
+                H.time.forEach((stamp, i) => { idx[stamp.slice(0, 13)] = i; });
+                const now = Date.now();
+                const put = (i, field, value) => { if (value != null && !Number.isNaN(value) && H[field]) H[field][i] = value; };
+                hours.forEach((a, k) => {
+                    const b = hours[k + 1];
+                    const i0 = idx[local(a.dt, 13)];
+                    if (i0 == null) return;
+                    const span = b ? Math.max(1, Math.round((b.dt - a.dt) / 3600)) : 1;
+                    for (let step = 0; step < span && i0 + step < H.time.length; step++) {
+                        const i = i0 + step, f = step / span;
+                        const mix = (name) => (b && a[name] != null && b[name] != null) ? a[name] + (b[name] - a[name]) * f : a[name];
+                        put(i, 'temperature_2m', r1(mix('temp')));
+                        put(i, 'weather_code', a.code);
+                        put(i, 'precipitation_probability', a.pop != null ? Math.round(a.pop * 100) : null);
+                        put(i, 'wind_speed_10m', mix('wind') != null ? r1(mix('wind') * 3.6) : null);
+                        put(i, 'wind_direction_10m', a.deg);
+                        put(i, 'wind_gusts_10m', a.gust != null ? r1(a.gust * 3.6) : null);
+                        put(i, 'pressure_msl', mix('press'));
+                        const startMs = Date.parse(H.time[i].slice(0, 13) + ':00:00Z') - off * 1000;
+                        if (!(data.precipStation && startMs <= now)) put(i, 'precipitation', r1(a.rain));
+                    }
+                });
+                const D = data.daily, di = {};
+                D.time.forEach((day, i) => { di[day] = i; });
+                const lastKey = local(hours[hours.length - 1].dt, 13);
+                const owmDays = new Set();
+                days.forEach(d => {
+                    const i = di[d.day];
+                    if (i == null) return;
+                    owmDays.add(d.day);
+                    D.temperature_2m_max[i] = d.max;
+                    D.temperature_2m_min[i] = d.min;
+                    if (d.pop != null) D.precipitation_probability_max[i] = Math.round(d.pop * 100);
+                    if (d.wind != null) D.wind_speed_10m_max[i] = r1(d.wind * 3.6);
+                    D.weather_code[i] = d.code;
+                    if (d.rise) D.sunrise[i] = local(d.rise, 16);
+                    if (d.set) D.sunset[i] = local(d.set, 16);
+                });
+                // Stunden nach OpenWeather-Reichweite: Tagescode (OpenWeather) soll das Tages-Symbol bestimmen
+                H.time.forEach((stamp, i) => { if (stamp.slice(0, 13) > lastKey && owmDays.has(stamp.slice(0, 10))) H.weather_code[i] = null; });
+                const c = data.current;
+                if (c && cur.temp != null) {
+                    c.temperature_2m = cur.temp;
+                    if (cur.feels != null) c.apparent_temperature = cur.feels;
+                    if (cur.wind != null) c.wind_speed_10m = r1(cur.wind * 3.6);
+                    if (cur.deg != null) c.wind_direction_10m = cur.deg;
+                    if (cur.gust != null) c.wind_gusts_10m = r1(cur.gust * 3.6);
+                    if (cur.code != null) c.weather_code = cur.code;
+                    if (!data.station) {
+                        if (cur.press != null) c.pressure_msl = cur.press;
+                        if (cur.hum != null) c.relative_humidity_2m = cur.hum;
+                    }
+                }
+                data.src = data.src || {};
+                data.src.owm = { api: res.api };
+                data.src.rainFc = 'owm';
+                data.src.cur = { temp: { k: 'owm', api: res.api }, wind: { k: 'owm', api: res.api } };
+                data.tempSource = 'OpenWeather';
+            } catch (e) {
+                console.error('OpenWeather nicht geladen', e);
+                owmNote(`${e.message || e} – es werden Open-Meteo-Daten gezeigt`);
+            }
         }
 
         const MOSMIX_MAX_DIST_M = 20000;
@@ -1969,7 +2121,7 @@
         }
 
         async function loadForecast(lat, lon) {
-            const chain = isCompositeModel() ? ['icon_d2', 'ecmwf_ifs', ''] : [''];
+            const chain = weatherModel() === 'owm' ? [''] : (isCompositeModel() ? ['icon_d2', 'ecmwf_ifs', ''] : ['']);
             let lastError = null;
             for (const model of chain) {
                 try {
@@ -2524,6 +2676,7 @@
             const place = (!short && o.name) ? ` · ${o.name}${o.km != null ? ' · ' + Math.round(o.km) + ' km' : ''}` : '';
             if (o.k === 'meas') return t('src_meas') + place;
             if (o.k === 'mosmix') return 'DWD MOSMIX' + place;
+            if (o.k === 'owm') return 'OpenWeather ' + o.api;
             if (o.k === 'guess') return `${o.name} (${t('src_guess')})`;
             return srcModelName(o.id);
         }
@@ -2535,12 +2688,15 @@
             const s = data.src, model = data.loadedModel, cur = s.cur || {};
             const hourly = [srcModelName(model) + (s.hourlyFill ? ' → ECMWF IFS' : '')];
             if (s.mosmix) hourly.push('Temp/Wind: ' + srcText({ k: 'mosmix', ...stationRef(s.mosmix) }));
-            const daily = model === 'icon_d2'
+            const ow = s.owm;
+            if (ow) { hourly.length = 0; hourly.push(`OpenWeather ${ow.api} → ${srcModelName(model)}`); }
+            let daily = model === 'icon_d2'
                 ? `${srcModelName(model)} (${t('src_d12')}) · ${s.daily3 === 'ecmwf_ifs' ? 'ECMWF IFS' : 'Open-Meteo Best Match'} (${t('src_d3')})`
                 : srcModelName(model);
+            if (ow) daily = `OpenWeather ${ow.api} → ${srcModelName(model)}`;
             const rain = [];
             if (data.precipStation?.name) rain.push(`${t('src_past')}: DWD ${data.precipStation.name} · ${Math.round(data.precipStation.distanceKm)} km`);
-            rain.push(`${t('src_fc')}: ${s.rainFc === 'mosmix' ? 'DWD MOSMIX' : srcModelName(model)}`);
+            rain.push(`${t('src_fc')}: ${s.rainFc === 'mosmix' ? 'DWD MOSMIX' : s.rainFc === 'owm' ? 'OpenWeather' : srcModelName(model)}`);
             const rows = [
                 [t('src_temp'), srcText(cur.temp)], [t('src_wind'), srcText(cur.wind)],
                 [t('src_hourly'), hourly.join(' · ')], [t('src_daily'), daily],
@@ -2590,6 +2746,7 @@
                     data.tempSource = data.loadedModel === 'ecmwf_ifs' ? 'ECMWF' : (data.loadedModel === 'icon_d2' ? 'ICON-D2' : 'Open-Meteo');
                     try {
                         if (weatherModel() === 'gated') await applyMixModel(data, lat, lon);
+                        else if (weatherModel() === 'owm') await applyOpenWeatherModel(data, lat, lon);
                         else await applyLegacyModel(data, lat, lon);
                     } catch (e) {
                         console.error('Modell nicht geladen', e);
