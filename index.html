@@ -720,7 +720,8 @@
                     <button type="button" class="toggle-btn" id="btn-model-owm" onclick="setWeatherModel('owm')">MODELL 4</button>
                 </div>
                 <p id="model-hint" class="log-note"></p>
-                <input type="password" id="owm-key" placeholder="OpenWeather API-Key (nur Modell 4)" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--text-muted);background:transparent;color:inherit;font-size:13px;">
+                <p class="log-note" style="margin:14px 0 6px;">OpenWeather API-Key: persönlicher Schlüssel von openweathermap.org (Konto → API keys). Wird nur für Modell 4 gebraucht und nur auf diesem Gerät gespeichert.</p>
+                <input type="password" id="owm-key" placeholder="OpenWeather API-Key (nur Modell 4)" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;margin-top:0;padding:10px 12px;border-radius:10px;border:1px solid var(--text-muted);background:transparent;color:inherit;font-size:13px;">
             </div>
             <div class="info-box">
                 <h3 data-i18n="display">DARSTELLUNG</h3>
@@ -743,7 +744,7 @@
                 <p data-i18n="log_hint">Der Verlauf wird nur für Favoriten (★) gespeichert. Beim Öffnen werden Temperatur, Sonne, Wind, Luftdruck und Niederschlag gespeichert. Fehlende Tage werden bis zu 60 Tage nachgeladen.</p>
                 <button class="toggle-btn" style="width:100%;" onclick="openLogPage()" data-i18n="log_open">DIAGRAMM ÖFFNEN</button>
             </div>
-            <div class="info-box">
+            <div class="info-box" id="info-sources" style="scroll-margin-top:70px;">
                 <h3 data-i18n="sources">QUELLEN</h3>
                 <p><strong style="color:var(--accent-red);">Weather data by Open-Meteo.com</strong></p>
                 <div id="sources-dynamic">
@@ -1094,7 +1095,10 @@
         }
         
         document.getElementById('menu-trigger').onclick = () => openPage('page-info');
-        document.getElementById('footer-info-trigger').onclick = () => openPage('page-info');
+        document.getElementById('footer-info-trigger').onclick = () => {
+            openPage('page-info');
+            requestAnimationFrame(() => document.getElementById('info-sources')?.scrollIntoView({ block: 'start' }));
+        };
         function openPlaces() {
             openPage('page-orte');
             document.getElementById('orte-search-input').focus();
