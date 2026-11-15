@@ -1956,7 +1956,11 @@
         function owmCode(id) {
             id = Number(id);
             if (id >= 200 && id < 300) return 95;
-            if (id >= 300 && id < 400) return 53;
+            if (id === 300 || id === 310) return 51;
+            if (id === 301 || id === 311) return 53;
+            if (id === 302 || id === 312) return 55;
+            if (id === 313 || id === 321) return 80;
+            if (id === 314) return 82;
             if (id === 500) return 61;
             if (id === 501) return 63;
             if (id >= 502 && id < 511) return 65;
@@ -2013,7 +2017,7 @@
                 if (res.api === '3.0') {
                     cur = norm(res.body.current);
                     hours = (res.body.hourly || []).map(norm);
-                    days = (res.body.daily || []).map(d => ({ day: local(d.dt, 10), max: d.temp.max, min: d.temp.min, pop: d.pop, wind: d.wind_speed, code: owmCode(d.weather?.[0]?.id), rise: d.sunrise, set: d.sunset }));
+                    days = (res.body.daily || []).map(d => ({ day: local(d.dt, 10), max: d.temp.max, min: d.temp.min, pop: d.pop, wind: d.wind_speed, code: owmCode(d.weather?.[0]?.id), id: d.weather?.[0]?.id, rise: d.sunrise, set: d.sunset }));
                 } else {
                     cur = norm(res.cur);
                     hours = (res.fc.list || []).map(norm);
@@ -2022,12 +2026,14 @@
                     Object.entries(by).forEach(([day, xs]) => {
                         if (xs.length < 6) return; // nur vollstaendige Tage
                         const noon = xs.find(x => Number(local(x.dt, 13).slice(11)) >= 12) || xs[0];
-                        days.push({ day, max: Math.max(...xs.map(x => x.temp)), min: Math.min(...xs.map(x => x.temp)), pop: Math.max(...xs.map(x => x.pop || 0)), wind: Math.max(...xs.map(x => x.wind || 0)), code: noon.code });
+                        days.push({ day, max: Math.max(...xs.map(x => x.temp)), min: Math.min(...xs.map(x => x.temp)), pop: Math.max(...xs.map(x => x.pop || 0)), wind: Math.max(...xs.map(x => x.wind || 0)), code: noon.code, id: noon.id });
                     });
                 }
                 if (!hours.length) throw new Error('keine Stundenwerte erhalten');
                 const r1 = (v) => Math.round(v * 10) / 10;
                 const H = data.hourly, idx = {};
+                H.owm_id = new Array(H.time.length).fill(null);
+                data.daily.owm_id = new Array(data.daily.time.length).fill(null);
                 H.time.forEach((stamp, i) => { idx[stamp.slice(0, 13)] = i; });
                 const now = Date.now();
                 const put = (i, field, value) => { if (value != null && !Number.isNaN(value) && H[field]) H[field][i] = value; };
@@ -2041,6 +2047,7 @@
                         const mix = (name) => (b && a[name] != null && b[name] != null) ? a[name] + (b[name] - a[name]) * f : a[name];
                         put(i, 'temperature_2m', r1(mix('temp')));
                         put(i, 'weather_code', a.code);
+                        put(i, 'owm_id', a.id);
                         put(i, 'precipitation_probability', a.pop != null ? Math.round(a.pop * 100) : null);
                         put(i, 'wind_speed_10m', mix('wind') != null ? r1(mix('wind') * 3.6) : null);
                         put(i, 'wind_direction_10m', a.deg);
@@ -2063,6 +2070,7 @@
                     if (d.pop != null) D.precipitation_probability_max[i] = Math.round(d.pop * 100);
                     if (d.wind != null) D.wind_speed_10m_max[i] = r1(d.wind * 3.6);
                     D.weather_code[i] = d.code;
+                    D.owm_id[i] = d.id ?? null;
                     if (d.rise) D.sunrise[i] = local(d.rise, 16);
                     if (d.set) D.sunset[i] = local(d.set, 16);
                 });
@@ -2075,7 +2083,7 @@
                     if (cur.wind != null) c.wind_speed_10m = r1(cur.wind * 3.6);
                     if (cur.deg != null) c.wind_direction_10m = cur.deg;
                     if (cur.gust != null) c.wind_gusts_10m = r1(cur.gust * 3.6);
-                    if (cur.code != null) c.weather_code = cur.code;
+                    if (cur.code != null) { c.weather_code = cur.code; c.owm_id = cur.id ?? null; }
                     if (!data.station) {
                         if (cur.press != null) c.pressure_msl = cur.press;
                         if (cur.hum != null) c.relative_humidity_2m = cur.hum;
@@ -2912,17 +2920,86 @@
             return index >= 0 ? index : 0;
         }
 
-        function getWeatherText(code) {
-            if (code === 0) return t('clear');
-            if (code === 1 || code === 2) return t('partly_cloudy');
-            if (code === 3) return t('cloudy');
-            if (code === 45 || code === 48) return t('fog');
-            if (code >= 51 && code <= 67) return t('rain_c');
-            if (code >= 71 && code <= 77) return t('snow');
-            if (code >= 80 && code <= 82) return t('showers');
-            if (code >= 85 && code <= 86) return t('snow_showers');
-            if (code >= 95) return t('thunder');
-            return t('cloudy');
+        // Wetterbeschreibungen nach OpenWeather-Dokumentation (en, de, zh); Open-Meteo-WMO-Codes werden darauf abgebildet
+        const OWM_TEXT = {
+            200: ["thunderstorm with light rain", "Gewitter mit leichtem Regen", "雷暴伴小雨"],
+            201: ["thunderstorm with rain", "Gewitter mit Regen", "雷暴伴雨"],
+            202: ["thunderstorm with heavy rain", "Gewitter mit starkem Regen", "雷暴伴大雨"],
+            210: ["light thunderstorm", "leichtes Gewitter", "轻雷暴"],
+            211: ["thunderstorm", "Gewitter", "雷暴"],
+            212: ["heavy thunderstorm", "starkes Gewitter", "强雷暴"],
+            221: ["ragged thunderstorm", "vereinzelte Gewitter", "零星雷暴"],
+            230: ["thunderstorm with light drizzle", "Gewitter mit leichtem Nieselregen", "雷暴伴小毛毛雨"],
+            231: ["thunderstorm with drizzle", "Gewitter mit Nieselregen", "雷暴伴毛毛雨"],
+            232: ["thunderstorm with heavy drizzle", "Gewitter mit starkem Nieselregen", "雷暴伴大毛毛雨"],
+            300: ["light intensity drizzle", "leichter Nieselregen", "小毛毛雨"],
+            301: ["drizzle", "Nieselregen", "毛毛雨"],
+            302: ["heavy intensity drizzle", "starker Nieselregen", "大毛毛雨"],
+            310: ["light intensity drizzle rain", "leichter Nieselregen mit Regen", "小毛毛雨夹雨"],
+            311: ["drizzle rain", "Nieselregen mit Regen", "毛毛雨夹雨"],
+            312: ["heavy intensity drizzle rain", "starker Nieselregen mit Regen", "强毛毛雨夹雨"],
+            313: ["shower rain and drizzle", "Regenschauer und Nieselregen", "阵雨夹毛毛雨"],
+            314: ["heavy shower rain and drizzle", "starke Regenschauer und Nieselregen", "强阵雨夹毛毛雨"],
+            321: ["shower drizzle", "Nieselschauer", "毛毛阵雨"],
+            500: ["light rain", "leichter Regen", "小雨"],
+            501: ["moderate rain", "mäßiger Regen", "中雨"],
+            502: ["heavy intensity rain", "starker Regen", "大雨"],
+            503: ["very heavy rain", "sehr starker Regen", "暴雨"],
+            504: ["extreme rain", "extremer Regen", "特大暴雨"],
+            511: ["freezing rain", "gefrierender Regen", "冻雨"],
+            520: ["light intensity shower rain", "leichter Regenschauer", "小阵雨"],
+            521: ["shower rain", "Regenschauer", "阵雨"],
+            522: ["heavy intensity shower rain", "starker Regenschauer", "强阵雨"],
+            531: ["ragged shower rain", "unregelmäßige Regenschauer", "零星阵雨"],
+            600: ["light snow", "leichter Schneefall", "小雪"],
+            601: ["snow", "Schneefall", "雪"],
+            602: ["heavy snow", "starker Schneefall", "大雪"],
+            611: ["sleet", "Schneeregen", "雨夹雪"],
+            612: ["light shower sleet", "leichter Schneeregenschauer", "小阵雨夹雪"],
+            613: ["shower sleet", "Schneeregenschauer", "阵雨夹雪"],
+            615: ["light rain and snow", "leichter Regen und Schnee", "小雨夹雪"],
+            616: ["rain and snow", "Regen und Schnee", "雨夹雪"],
+            620: ["light shower snow", "leichter Schneeschauer", "小阵雪"],
+            621: ["shower snow", "Schneeschauer", "阵雪"],
+            622: ["heavy shower snow", "starker Schneeschauer", "强阵雪"],
+            701: ["mist", "leichter Nebel", "薄雾"],
+            711: ["smoke", "Rauch", "烟雾"],
+            721: ["haze", "Dunst", "霾"],
+            731: ["sand/dust whirls", "Sand-/Staubwirbel", "沙尘旋风"],
+            741: ["fog", "Nebel", "雾"],
+            751: ["sand", "Sand", "沙"],
+            761: ["dust", "Staub", "尘"],
+            762: ["volcanic ash", "Vulkanasche", "火山灰"],
+            771: ["squalls", "Sturmböen", "飑"],
+            781: ["tornado", "Tornado", "龙卷风"],
+            800: ["clear sky", "klarer Himmel", "晴"],
+            801: ["few clouds: 11-25%", "leicht bewölkt: 11–25 %", "少云：11-25%"],
+            802: ["scattered clouds: 25-50%", "wolkig: 25–50 %", "多云：25-50%"],
+            803: ["broken clouds: 51-84%", "überwiegend bewölkt: 51–84 %", "多云（碎云）：51-84%"],
+            804: ["overcast clouds: 85-100%", "bedeckt: 85–100 %", "阴：85-100%"]
+        };
+        const WMO_TO_OWM = { 0: 800, 1: 801, 2: 802, 3: 804, 45: 741, 48: 741, 51: 300, 53: 301, 55: 302, 56: 511, 57: 511, 61: 500, 63: 501, 65: 502, 66: 511, 67: 511, 71: 600, 73: 601, 75: 602, 77: 600, 80: 520, 81: 521, 82: 522, 85: 620, 86: 622, 95: 211, 96: 211, 99: 212 };
+
+        function getWeatherText(code, owmId) {
+            let id = owmId != null && OWM_TEXT[owmId] ? Number(owmId) : null;
+            if (id == null) {
+                const keys = Object.keys(WMO_TO_OWM).map(Number).filter(k => k <= Number(code));
+                id = keys.length ? WMO_TO_OWM[keys[keys.length - 1]] : 804;
+            }
+            return OWM_TEXT[id][currentLang === 'de' ? 1 : currentLang === 'zh' ? 2 : 0];
+        }
+
+        // OpenWeather-ID fuer die Tagesanzeige: haeufigste Stunden-ID des Tages, die zum gewaehlten Symbol passt
+        function pickOwmId(hourly, daily, i, code) {
+            const day = daily.time[i], counts = {};
+            if (hourly?.owm_id) hourly.time.forEach((stamp, k) => {
+                const id = hourly.owm_id[k];
+                if (id != null && stamp.slice(0, 10) === day && owmCode(id) === code) counts[id] = (counts[id] || 0) + 1;
+            });
+            const best = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+            if (best) return Number(best);
+            const d = daily.owm_id?.[i];
+            return d != null && owmCode(d) === code ? d : null;
         }
 
         function renderCityTime() {
@@ -3822,7 +3899,7 @@
             tempEl.innerText = tempText;
             tempEl.classList.toggle('single', tempText.replace('-', '').length === 1);
             document.getElementById('current-icon').innerHTML = getWeatherIconHtml(current.weather_code, current.is_day);
-            document.getElementById('current-condition').innerText = getWeatherText(current.weather_code);
+            document.getElementById('current-condition').innerText = getWeatherText(current.weather_code, current.owm_id);
             document.getElementById('feels-like').innerText = Math.round(current.apparent_temperature) + '°';
             const todayIndex = todayDailyIndex(daily, current);
             document.getElementById('high-temp').innerText = Math.round(daily.temperature_2m_max[todayIndex]) + '°';
@@ -3944,7 +4021,7 @@
                 const maxT = Math.round(daily.temperature_2m_max[i]);
                 const minT = Math.round(daily.temperature_2m_min[i]);
                 const code = dayIconCode(hourly, daily, i, current.time);
-                const text = getWeatherText(code);
+                const text = getWeatherText(code, pickOwmId(hourly, daily, i, code));
                 
                 threeDayContainer.innerHTML += `
                     <div class="day-card ${selectedDayIndex === i ? 'selected' : ''}" data-index="${i}">
