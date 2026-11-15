@@ -795,7 +795,7 @@
                 search_placeholder: "Stadt suchen ...", my_location: "MEIN STANDORT",
                 current_location: "AKTUELLER STANDORT", favorites: "FAVORITEN",
                 language: "SPRACHE", display: "DARSTELLUNG", auto: "AUTO", light: "HELL", dark: "DUNKEL",
-                sources: "QUELLEN", src_temp:"Temperatur jetzt",src_wind:"Wind jetzt",src_hourly:"Stundenwerte",src_daily:"Tageswerte",src_ens:"Ensemble (Unsicherheit)",src_rain:"Regenmenge",src_press:"Luftdruck/Feuchte",src_radar:"Radar",src_moon:"Mond",src_meas:"DWD-Messung",src_guess:"vermutet",src_d12:"Tag 1–2",src_d3:"ab Tag 3",src_none:"keine",src_past:"bisher",src_fc:"Vorhersage",src_calc:"eigene Berechnung", privacy: "DATENSCHUTZ", privacy_text: "Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.",
+                sources: "QUELLEN", src_temp:"Temperatur jetzt",src_code:"Wetter jetzt",src_wind:"Wind jetzt",src_hourly:"Stundenwerte",src_daily:"Tageswerte",src_ens:"Ensemble (Unsicherheit)",src_rain:"Regenmenge",src_press:"Luftdruck/Feuchte",src_radar:"Radar",src_moon:"Mond",src_meas:"DWD-Messung",src_guess:"vermutet",src_d12:"Tag 1–2",src_d3:"ab Tag 3",src_none:"keine",src_past:"bisher",src_fc:"Vorhersage",src_calc:"eigene Berechnung", privacy: "DATENSCHUTZ", privacy_text: "Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.",
                 version: "Version",
                 install_title: "APP INSTALLIEREN",
                 install_ask: "Möchtest du Panda Wetter auf diesem Gerät installieren?",
@@ -830,7 +830,7 @@
                 search_placeholder: "Search city ...", my_location: "MY LOCATION",
                 current_location: "CURRENT LOCATION", favorites: "FAVORITES",
                 language: "LANGUAGE", display: "APPEARANCE", auto: "AUTO", light: "LIGHT", dark: "DARK",
-                sources: "SOURCES", src_temp:"Temperature now",src_wind:"Wind now",src_hourly:"Hourly values",src_daily:"Daily values",src_ens:"Ensemble (uncertainty)",src_rain:"Rainfall",src_press:"Pressure/humidity",src_radar:"Radar",src_moon:"Moon",src_meas:"DWD measurement",src_guess:"presumed",src_d12:"day 1–2",src_d3:"from day 3",src_none:"none",src_past:"so far",src_fc:"forecast",src_calc:"own calculation", privacy: "PRIVACY", privacy_text: "No tracking, no analytics, no ads, no accounts. The app only requests weather services with coordinates. Favorites, location and forecasts remain on this device.",
+                sources: "SOURCES", src_temp:"Temperature now",src_code:"Weather now",src_wind:"Wind now",src_hourly:"Hourly values",src_daily:"Daily values",src_ens:"Ensemble (uncertainty)",src_rain:"Rainfall",src_press:"Pressure/humidity",src_radar:"Radar",src_moon:"Moon",src_meas:"DWD measurement",src_guess:"presumed",src_d12:"day 1–2",src_d3:"from day 3",src_none:"none",src_past:"so far",src_fc:"forecast",src_calc:"own calculation", privacy: "PRIVACY", privacy_text: "No tracking, no analytics, no ads, no accounts. The app only requests weather services with coordinates. Favorites, location and forecasts remain on this device.",
                 version: "Version",
                 install_title: "INSTALL APP",
                 install_ask: "Do you want to install Panda Weather on this device?",
@@ -865,7 +865,7 @@
                 search_placeholder: "搜索城市 ...", my_location: "我的位置",
                 current_location: "当前位置", favorites: "收藏夹",
                 language: "语言", display: "显示", auto: "自动", light: "浅色", dark: "深色",
-                sources: "数据来源", src_temp:"当前气温",src_wind:"当前风",src_hourly:"逐小时数据",src_daily:"每日数据",src_ens:"集合预报（不确定性）",src_rain:"降水量",src_press:"气压/湿度",src_radar:"雷达",src_moon:"月亮",src_meas:"DWD实测",src_guess:"推测",src_d12:"第1–2天",src_d3:"第3天起",src_none:"无",src_past:"已发生",src_fc:"预报",src_calc:"自行计算", privacy: "隐私", privacy_text: "无追踪，无分析，无广告，无账户。应用仅使用坐标请求天气服务。收藏、位置和预报保留在本设备上。",
+                sources: "数据来源", src_temp:"当前气温",src_code:"当前天气",src_wind:"当前风",src_hourly:"逐小时数据",src_daily:"每日数据",src_ens:"集合预报（不确定性）",src_rain:"降水量",src_press:"气压/湿度",src_radar:"雷达",src_moon:"月亮",src_meas:"DWD实测",src_guess:"推测",src_d12:"第1–2天",src_d3:"第3天起",src_none:"无",src_past:"已发生",src_fc:"预报",src_calc:"自行计算", privacy: "隐私", privacy_text: "无追踪，无分析，无广告，无账户。应用仅使用坐标请求天气服务。收藏、位置和预报保留在本设备上。",
                 version: "版本",
                 install_title: "安装应用",
                 install_ask: "要在这台设备上安装熊猫天气吗？",
@@ -2002,7 +2002,7 @@
                     dt: x.dt, temp: x.temp ?? x.main?.temp, feels: x.feels_like ?? x.main?.feels_like,
                     hum: x.humidity ?? x.main?.humidity, press: x.pressure ?? x.main?.pressure,
                     wind: x.wind_speed ?? x.wind?.speed, deg: x.wind_deg ?? x.wind?.deg, gust: x.wind_gust ?? x.wind?.gust,
-                    code: owmCode(x.weather?.[0]?.id), pop: x.pop,
+                    code: owmCode(x.weather?.[0]?.id), id: x.weather?.[0]?.id, pop: x.pop,
                     rain: ((x.rain?.['1h'] ?? x.rain?.['3h'] / 3) || 0) + ((x.snow?.['1h'] ?? x.snow?.['3h'] / 3) || 0)
                 });
                 let cur, hours, days = [];
@@ -2079,6 +2079,7 @@
                 }
                 data.src = data.src || {};
                 data.src.owm = { api: res.api };
+                data.src.owmId = cur.id;
                 data.src.rainFc = 'owm';
                 data.src.cur = { temp: { k: 'owm', api: res.api }, wind: { k: 'owm', api: res.api } };
                 data.tempSource = 'OpenWeather';
@@ -2689,6 +2690,9 @@
             const hourly = [srcModelName(model) + (s.hourlyFill ? ' → ECMWF IFS' : '')];
             if (s.mosmix) hourly.push('Temp/Wind: ' + srcText({ k: 'mosmix', ...stationRef(s.mosmix) }));
             const ow = s.owm;
+            const nowC = data.current || {}, nowCode = nowC.weather_code ?? null;
+            const nowTemp = nowC.temperature_2m != null ? Math.round(nowC.temperature_2m * 10) / 10 : null;
+            const nowWind = nowC.wind_speed_10m != null ? Math.round(nowC.wind_speed_10m * 10) / 10 : null;
             if (ow) { hourly.length = 0; hourly.push(`OpenWeather ${ow.api} → ${srcModelName(model)}`); }
             let daily = model === 'icon_d2'
                 ? `${srcModelName(model)} (${t('src_d12')}) · ${s.daily3 === 'ecmwf_ifs' ? 'ECMWF IFS' : 'Open-Meteo Best Match'} (${t('src_d3')})`
@@ -2698,7 +2702,9 @@
             if (data.precipStation?.name) rain.push(`${t('src_past')}: DWD ${data.precipStation.name} · ${Math.round(data.precipStation.distanceKm)} km`);
             rain.push(`${t('src_fc')}: ${s.rainFc === 'mosmix' ? 'DWD MOSMIX' : s.rainFc === 'owm' ? 'OpenWeather' : srcModelName(model)}`);
             const rows = [
-                [t('src_temp'), srcText(cur.temp)], [t('src_wind'), srcText(cur.wind)],
+                [t('src_code'), `${s.owm ? 'OpenWeather ' + s.owm.api : srcModelName(model)}${nowCode != null ? ` (WMO ${nowCode}${s.owm && s.owmId != null ? ', OpenWeather ' + s.owmId : ''})` : ''}`],
+                [t('src_temp'), srcText(cur.temp) + (nowTemp != null ? ` (${nowTemp} °C)` : '')],
+                [t('src_wind'), srcText(cur.wind) + (nowWind != null ? ` (${nowWind} km/h)` : '')],
                 [t('src_hourly'), hourly.join(' · ')], [t('src_daily'), daily],
                 [t('src_ens'), s.ens ? 'ECMWF ENS (ifs025)' : t('src_none')], [t('src_rain'), rain.join(' · ')]
             ];
