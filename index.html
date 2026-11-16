@@ -102,6 +102,8 @@
         }
         .toggle-btn.active { background: var(--accent-red); color: white; border-color: var(--accent-red); }
         .model-group { display: flex; gap: 6px; }
+        #install-box[hidden],
+        #install-actions[hidden] { display: none !important; }
         .model-group .toggle-btn { flex: 1; padding: 12px 4px; letter-spacing: 0; font-size: 12px; }
 
         .search-bar {
@@ -910,7 +912,7 @@
             }
         };
 
-        const APP_VERSION = '2.26';
+        const APP_VERSION = '2.27';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -989,35 +991,68 @@
 
         let installPrompt = null;
 
-        function isInstalledApp() {
-            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        function isInstalledDisplay() {
+            return window.matchMedia('(display-mode: standalone)').matches
+                || window.matchMedia('(display-mode: fullscreen)').matches
+                || window.matchMedia('(display-mode: minimal-ui)').matches
+                || window.matchMedia('(display-mode: window-controls-overlay)').matches
+                || window.navigator.standalone === true
+                || String(document.referrer || '').startsWith('android-app://');
         }
 
-        function updateInstallBox() {
+        async function isInstalledApp() {
+            if (isInstalledDisplay()) {
+                localStorage.setItem('panda_installed', '1');
+                return true;
+            }
+            if (navigator.getInstalledRelatedApps) {
+                try {
+                    const apps = await navigator.getInstalledRelatedApps();
+                    if (apps && apps.length) {
+                        localStorage.setItem('panda_installed', '1');
+                        return true;
+                    }
+                } catch (e) {}
+            }
+            return localStorage.getItem('panda_installed') === '1';
+        }
+
+        async function updateInstallBox() {
             const box = document.getElementById('install-box');
             const text = document.getElementById('install-text');
             const actions = document.getElementById('install-actions');
             if (!box || !text || !actions) return;
-            if (sessionStorage.getItem('panda_install_no') === '1' && !isInstalledApp()) {
+            const installed = await isInstalledApp();
+            if (installed) sessionStorage.removeItem('panda_install_no');
+            if (sessionStorage.getItem('panda_install_no') === '1' && !installed) {
                 box.hidden = true;
                 return;
             }
             box.hidden = false;
-            if (isInstalledApp()) {
+            if (installed) {
                 text.textContent = t('install_done');
                 actions.hidden = true;
+                actions.style.display = 'none';
                 return;
             }
             text.textContent = t('install_ask');
             actions.hidden = false;
+            actions.style.display = '';
         }
 
         async function installApp() {
+            if (await isInstalledApp()) {
+                updateInstallBox();
+                return;
+            }
             if (installPrompt) {
                 installPrompt.prompt();
                 const choice = await installPrompt.userChoice;
                 installPrompt = null;
-                if (choice.outcome === 'accepted') updateInstallBox();
+                if (choice.outcome === 'accepted') {
+                    localStorage.setItem('panda_installed', '1');
+                    updateInstallBox();
+                }
                 return;
             }
             const text = document.getElementById('install-text');
@@ -1040,6 +1075,7 @@
             });
             window.addEventListener('appinstalled', () => {
                 installPrompt = null;
+                localStorage.setItem('panda_installed', '1');
                 updateInstallBox();
             });
             if ('serviceWorker' in navigator && location.protocol !== 'file:') {
