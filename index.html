@@ -144,37 +144,49 @@
             display: flex; justify-content: space-between; align-items: center;
             padding: 0 20px; margin-bottom: 5px; position: relative;
         }
-        
         .temp-wrap {
-            display: flex;
-            align-items: flex-start;
-            flex: 0 0 auto;
-            position: relative;
-            z-index: 11;
-            font-family: "Libre Franklin Variable", "Libre Franklin", var(--font-family);
-            font-size: 88px;
-            font-weight: 800;
-            line-height: 1;
-            letter-spacing: -0.07em;
-        }
-        .temp-huge {
-            font: inherit;
-            letter-spacing: inherit;
-            line-height: inherit;
-            width: auto;
-            position: static;
-        }
-        .temp-huge.single { margin-left: 0.35em; }
-        .temp-degree {
-            font-family: inherit;
-            font-size: 0.60em;
-            font-weight: 700;
-            letter-spacing: 1.1;
-            line-height: 1;
-            margin-top: 0.05em;
-            margin-left: 0.01em;
-        }
-        
+			display: flex;
+			align-items: flex-start;
+			flex: 0 0 auto;
+			position: relative;
+			z-index: 11;
+
+			font-family: "Libre Franklin Variable", "Libre Franklin", var(--font-family);
+			font-size: 88px;
+			font-weight: 800;
+			line-height: 1;
+
+			/* vorher: -0.07em */
+			letter-spacing: -0.03em;
+		}
+
+		.temp-huge {
+			font: inherit;
+			letter-spacing: inherit;
+			line-height: inherit;
+			width: auto;
+			position: static;
+		}
+
+		.temp-huge.single {
+			margin-left: 0.35em;
+		}
+
+		.temp-degree {
+			font-family: inherit;
+			font-size: 0.60em;
+			font-weight: 700;
+
+			/* ungültigen Wert entfernt */
+			line-height: 1;
+
+			/* Feintuning der Position */
+			margin-top: 0.05em;
+
+			/* vorher: 0.01em */
+			margin-left: 3px;
+		}
+         
         /* Das große Panda-Bild */
         .frog-img { 
             width: 140px; 
