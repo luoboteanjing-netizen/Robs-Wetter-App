@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.31">
+    <link rel="manifest" href="manifest.json?v=2.32">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
     <link rel="apple-touch-icon" href="icon.png">
@@ -771,7 +772,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.31</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.32</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -912,7 +913,7 @@
             }
         };
 
-        const APP_VERSION = '2.31';
+        const APP_VERSION = '2.32';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
