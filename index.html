@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.32">
+    <link rel="manifest" href="manifest.json?v=2.33">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
@@ -502,8 +502,8 @@
         .place-del { display: flex; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 8px; }
         .place-del:hover, .place-del:active { color: var(--accent-red); }
         .place-empty { padding: 14px 12px; font-size: 13px; color: var(--text-muted); line-height: 1.4; }
-        .log-chart { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 8px; min-height: 200px; cursor: crosshair; touch-action: none; }
-        .log-chart.is-wide { overflow-x: auto; }
+        .log-chart { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 8px; min-height: 200px; cursor: crosshair; touch-action: none; overflow: hidden; text-align: left; }
+        .log-chart svg { display: block; width: 100%; margin: 0; }
         .log-probe { margin: 8px 0 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-main); }
         .log-probe[hidden] { display: none; }
         .log-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 48px 12px; }
@@ -772,7 +772,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.32</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.33</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -913,7 +913,7 @@
             }
         };
 
-        const APP_VERSION = '2.32';
+        const APP_VERSION = '2.33';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1604,10 +1604,9 @@
             // pad.l war 46, jetzt 15 px weiter links
             // Luftdruck-Diagramm ist 20 % hoeher (200 -> 240)
             const h = metric === 'pressure' ? 240 : 200;
-            const landscape = window.matchMedia('(orientation: landscape)').matches;
-            const w = landscape ? 510 : 340;
+            const w = 340;
             const pad = { l: 31, r: 10, t: 14, b: 28 };
-            host.classList.toggle('is-wide', landscape);
+            host.classList.remove('is-wide');
             const ys = points.map(point => point.y);
             let yTicks, minY, maxY;
             if (metric === 'rain') {
@@ -1688,7 +1687,7 @@
             const dots = points.map(point => `<circle cx="${px(point.x).toFixed(1)}" cy="${py(point.y).toFixed(1)}" r="3.2" fill="var(--accent-red)"/>`).join('');
             const yLabels = yTicks.map(value => `<text x="2" y="${(py(value) + 3).toFixed(1)}" fill="var(--text-muted)" font-size="10">${formatAxis(value)}</text>`).join('');
             const xLabels = xTicks.map(tick => `<text x="${px(tick.x).toFixed(1)}" y="${h - 6}" text-anchor="${tick.anchor || 'middle'}" fill="var(--text-muted)" font-size="10">${tick.label}</text>`).join('');
-            host.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${landscape ? '150%' : '100%'}" height="${Math.round(210 * h / 200)}">
+            host.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${Math.round(210 * h / 200)}">
                 ${gridY}
                 ${gridX}
                 <text x="${w - 8}" y="12" text-anchor="end" fill="var(--text-muted)" font-size="10">${unit}</text>
