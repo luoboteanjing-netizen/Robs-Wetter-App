@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.28">
+    <link rel="manifest" href="manifest.json?v=2.29">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
     <link rel="apple-touch-icon" href="icon.png">
@@ -372,12 +372,11 @@
         .day-icon { width: 44px; height: 44px; text-align: center; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; }
         .day-icon img, .day-icon svg, .day-icon .wx-icon { width: 100%; height: 100%; object-fit: contain; display: block; }
         
-        .day-rain { font-size: 12px; color: var(--accent-blue); width: 50px; text-align: right; font-weight: 600; }
-        .day-range { display: flex; align-items: center; gap: 10px; width: 100px; justify-content: flex-end; }
+        .day-rain { font-size: 12px; color: var(--accent-blue); width: 50px; text-align: right; font-weight: 600; margin-right: 10px; }
+        .day-range { display: flex; align-items: center; gap: 8px; width: 118px; justify-content: flex-end; }
         .day-range span { font-size: 16px; font-weight: 600; }
         .day-range .low { color: var(--text-muted); }
-        .temp-bar { height: 4px; background-color: var(--border-color); border-radius: 2px; width: 100%; position: relative; }
-        .temp-bar-fill { position: absolute; height: 100%; background: linear-gradient(90deg, var(--accent-blue), #ff9f0a, var(--accent-red)); border-radius: 2px; }
+        .day-trend { width: 56px; height: 28px; flex: 0 0 56px; display: block; }
 
         /* Mond */
         .moon-row { display: grid; grid-template-columns: 1.7fr 48px 1fr 1fr; align-items: center; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
@@ -772,7 +771,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.28</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.29</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -913,7 +912,7 @@
             }
         };
 
-        const APP_VERSION = '2.28';
+        const APP_VERSION = '2.29';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -2966,6 +2965,48 @@
             return (precip.length / samples.length >= 0.28) ? modeValue(precip) : modeValue(samples);
         }
 
+        function hourTempAt(hourly, stamp) {
+            if (!hourly?.time || !stamp) return null;
+            const i = hourly.time.findIndex(time => time.slice(0, 16) === stamp.slice(0, 16));
+            if (i < 0 || hourly.temperature_2m?.[i] == null) return null;
+            return { hour: Number(stamp.slice(11, 13)), temp: Number(hourly.temperature_2m[i]) };
+        }
+
+        function dayTrendSvg(hourly, dateStr) {
+            const points = [];
+            const push = (point) => {
+                if (!point) return;
+                const last = points[points.length - 1];
+                if (last && last.hour === point.hour) return;
+                points.push(point);
+            };
+            let low = null;
+            let high = null;
+            for (let hour = 0; hour < 24; hour++) {
+                const row = hourTempAt(hourly, `${dateStr}T${String(hour).padStart(2, '0')}:00`);
+                if (!row) continue;
+                if (!low || row.temp < low.temp) low = row;
+                if (!high || row.temp > high.temp) high = row;
+            }
+            push(hourTempAt(hourly, `${dateStr}T00:00`) || (low ? { hour: 0, temp: low.temp } : null));
+            [low, high].filter(Boolean).sort((a, b) => a.hour - b.hour).forEach(push);
+            const end = hourTempAt(hourly, `${nextDateKey(dateStr)}T00:00`);
+            push(end ? { hour: 24, temp: end.temp } : (points.length ? { hour: 24, temp: points[points.length - 1].temp } : null));
+            if (points.length < 2) return '';
+            const temps = points.map(point => point.temp);
+            const dataMin = Math.min(...temps);
+            const dataMax = Math.max(...temps);
+            const span = Math.max(10, dataMax - dataMin);
+            const scaleMin = (dataMin + dataMax) / 2 - span / 2;
+            const w = 56;
+            const h = 28;
+            const pad = 2;
+            const x = (hour) => pad + (hour / 24) * (w - pad * 2);
+            const y = (temp) => pad + (1 - (temp - scaleMin) / span) * (h - pad * 2);
+            const path = points.map((point, i) => `${i ? 'L' : 'M'}${x(point.hour).toFixed(1)} ${y(point.temp).toFixed(1)}`).join(' ');
+            return `<svg class="day-trend" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${path}" fill="none" stroke="var(--accent-red)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+        }
+
         function todayDailyIndex(daily, current) {
             const today = (current?.time || '').slice(0, 10);
             const index = daily?.time?.indexOf(today);
@@ -3309,7 +3350,7 @@
                 placeSun(daily.sunrise?.[index], true);
                 placeSun(daily.sunset?.[index], false);
             }
-            drawHourlyLine(slots.map(slot => slot.temp), `${uid}-line`, `${uid}-dots`, 86);
+            drawHourlyLine(slots.map(slot => slot.temp), `${uid}-line`, `${uid}-dots`, 86, 10);
             const rains = document.getElementById(`${uid}-rains`);
             if (rains) rains.innerHTML = hourlyRainHtml(slots.map(slot => slot.rain));
             const nowSlot = slots.findIndex(slot => slot.isNow);
@@ -3380,7 +3421,7 @@
             }
         }
 
-        function drawHourlyLine(temps, lineId = 'hourly-line', dotsId = 'hourly-dots', height = lineId === 'hourly-line' ? 86 : 72) {
+        function drawHourlyLine(temps, lineId = 'hourly-line', dotsId = 'hourly-dots', height = lineId === 'hourly-line' ? 86 : 72, minSpan = 1) {
             const svg = document.getElementById(lineId);
             if (!svg) return;
             if (temps.length < 2) {
@@ -3388,9 +3429,10 @@
                 return;
             }
             const slot = 100;
-            const min = Math.min(...temps);
-            const max = Math.max(...temps);
-            const span = Math.max(1, max - min);
+            const dataMin = Math.min(...temps);
+            const dataMax = Math.max(...temps);
+            const span = Math.max(minSpan, dataMax - dataMin);
+            const min = (dataMin + dataMax) / 2 - span / 2;
             const points = temps.map((temp, i) => ({
                 x: (i + 0.5) * slot,
                 y: 18 + (1 - (temp - min) / span) * (height - 26)
@@ -4102,9 +4144,6 @@
                 const minT = Math.round(daily.temperature_2m_min[i]);
                 const rain = daily.precipitation_probability_max[i];
                 const code = dayIconCode(hourly, daily, i, current.time);
-                
-                const barLeft = Math.max(0, (minT + 5) * 3);
-                const barWidth = Math.max(5, (maxT - minT) * 3);
 
                 weekContainer.innerHTML += `
                     <div class="day-row" data-index="${i}" style="cursor:pointer;">
@@ -4116,9 +4155,7 @@
                         <div class="day-rain">${rain > 0 ? rain + ' %' : ''}</div>
                         <div class="day-range">
                             <span class="low">${minT}°</span>
-                            <div class="temp-bar">
-                                <div class="temp-bar-fill" style="left:${barLeft}%; width:${barWidth}%"></div>
-                            </div>
+                            ${dayTrendSvg(hourly, daily.time[i])}
                             <span>${maxT}°</span>
                         </div>
                     </div>
