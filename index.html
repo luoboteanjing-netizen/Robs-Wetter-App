@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.29">
+    <link rel="manifest" href="manifest.json?v=2.30">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
     <link rel="apple-touch-icon" href="icon.png">
@@ -771,7 +771,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.29</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.30</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -912,7 +912,7 @@
             }
         };
 
-        const APP_VERSION = '2.29';
+        const APP_VERSION = '2.30';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -3830,7 +3830,7 @@
             const step = 5 * 60000;
             let rise = null, set = null;
             let prev = altMinusHorizon(startMs);
-            for (let t = startMs + step; t <= startMs + 24 * 3600000; t += step) {
+            for (let t = startMs + step; t <= startMs + 36 * 3600000 && (rise === null || set === null); t += step) {
                 const cur = altMinusHorizon(t);
                 if (prev < 0 && cur >= 0 && rise === null) rise = t - step + step * (-prev) / (cur - prev);
                 if (prev >= 0 && cur < 0 && set === null) set = t - step + step * prev / (prev - cur);
@@ -3899,7 +3899,15 @@
                 const timesFor = (local) => {
                     const dayKey = `${local.y}-${String(local.m).padStart(2, '0')}-${String(local.d).padStart(2, '0')}`;
                     const apiDay = apiDays ? apiDays[dayKey] : null;
-                    if (apiDay) return { rise: showIso(apiDay.rise), set: showIso(apiDay.set) };
+                    if (apiDay) {
+                        let set = apiDay.set;
+                        if (!set && apiDays) {
+                            const nextSet = apiDays[nextDateKey(dayKey)]?.set;
+                            const hour = typeof nextSet === 'string' ? Number(nextSet.slice(11, 13)) : NaN;
+                            if (hour >= 0 && hour < 12) set = nextSet;
+                        }
+                        return { rise: showIso(apiDay.rise), set: showIso(set) };
+                    }
                     const calc = moonRiseSet(localMidnightMs(local.y, local.m, local.d, tz), lat, lon);
                     return { rise: showTime(calc.rise), set: showTime(calc.set) };
                 };
@@ -3922,7 +3930,12 @@
                 const names = t('moon_phases');
                 // Name = naechstliegende Phase (+-22,5 Grad), passend zur angezeigten Mondscheibe
                 const currentName = Array.isArray(names) ? names[Math.round(elong / 45) % 8] : '';
-                const todayRow = rowHtml(`<strong>${t('today')}</strong><span>${currentName}</span>`, elong, timesFor(localDateParts(now, tz)), 'moon-today');
+                const todayLocal = localDateParts(now, tz);
+                const isToday = (event) => {
+                    const local = localDateParts(event.ms, tz);
+                    return local.y === todayLocal.y && local.m === todayLocal.m && local.d === todayLocal.d;
+                };
+                const todayRow = rowHtml(`<strong>${t('today')}</strong><span>${currentName}</span>`, elong, timesFor(todayLocal), 'moon-today');
 
                 box.innerHTML = `
                     <div class="moon-row moon-head">
@@ -3930,9 +3943,9 @@
                         <div class="moon-time">${t('moon_rise')}</div>
                         <div class="moon-time">${t('moon_set')}</div>
                     </div>
-                    ${past.map(eventRow).join('')}
+                    ${past.filter(event => !isToday(event)).map(eventRow).join('')}
                     ${todayRow}
-                    ${future.map(eventRow).join('')}`;
+                    ${future.filter(event => !isToday(event)).map(eventRow).join('')}`;
             } catch (e) {
                 box.innerHTML = '';
             }
