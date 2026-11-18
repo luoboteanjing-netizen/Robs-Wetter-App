@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.34">
+    <link rel="manifest" href="manifest.json?v=2.35">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
@@ -772,7 +772,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.34</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.35</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -913,7 +913,7 @@
             }
         };
 
-        const APP_VERSION = '2.34';
+        const APP_VERSION = '2.35';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1844,6 +1844,43 @@
             return dayModelCache;
         }
 
+        function placeOffsetSeconds(lat, lon) {
+            if (lastWeatherData && Math.abs((lastWeatherData.latitude ?? currentLat) - lat) < 0.05 && Math.abs((lastWeatherData.longitude ?? currentLon) - lon) < 0.05) {
+                return lastWeatherData.utc_offset_seconds || 0;
+            }
+            return -new Date().getTimezoneOffset() * 60;
+        }
+
+        async function ensurePrecipObs(lat, lon) {
+            if (lastPrecipObs && Math.abs(lastPrecipObs.lat - lat) < 0.02 && Math.abs(lastPrecipObs.lon - lon) < 0.02 && lastPrecipObs.precip?.hours) {
+                return lastPrecipObs;
+            }
+            const station = await findPrecipStation(lat, lon);
+            if (!station) return null;
+            const precip = await fetchStationPrecip(station, placeOffsetSeconds(lat, lon));
+            if (!precip) return null;
+            lastPrecipObs = { lat, lon, precip };
+            return lastPrecipObs;
+        }
+
+        function measuredRainUntil(precip, day, offsetSeconds, untilNow) {
+            const now = Date.now();
+            let sum = 0;
+            let any = false;
+            const points = [];
+            for (let hour = 0; hour < 24; hour++) {
+                const key = `${day}T${String(hour).padStart(2, '0')}`;
+                const t = Date.parse(key + ':00:00Z') - offsetSeconds * 1000;
+                if (untilNow && t > now) break;
+                if (precip.hours[key] != null) {
+                    sum += Number(precip.hours[key]);
+                    any = true;
+                }
+                points.push({ x: t, y: Math.round(sum * 10) / 10, label: formatTime(new Date(t)) });
+            }
+            return any ? { sum: Math.round(sum * 10) / 10, points } : null;
+        }
+
         function pointsFromDayModel(rows, metric) {
             const field = LOG_METRICS[metric].key;
             return rows.filter(row => row[field] != null && !Number.isNaN(Number(row[field]))).map(row => ({
@@ -1910,11 +1947,37 @@
                 const token = ++logDayToken;
                 const fallback = pointsForLog(store?.entries || [], logMetric, logRange, logAnchor);
                 drawLogChart(fallback, unit, logRange, bounds, logMetric);
-                loadDayModelHours(lat, lon, day).then(cached => {
-                    if (token !== logDayToken || logRange !== 'day') return;
+                const drawModel = () => loadDayModelHours(lat, lon, day).then(cached => {
+                    if (token !== logDayToken || logRange !== 'day' || logMetric === 'rain') return;
                     const points = pointsFromDayModel(cached.rows, logMetric);
                     drawLogChart(points.length ? points : fallback, unit, logRange, bounds, logMetric);
-                }).catch(() => {
+                });
+                if (logMetric === 'rain') {
+                    ensurePrecipObs(lat, lon).then(obs => {
+                        if (token !== logDayToken || logRange !== 'day' || logMetric !== 'rain') return;
+                        const offset = placeOffsetSeconds(lat, lon);
+                        const placeToday = new Date(Date.now() + offset * 1000).toISOString().slice(0, 10);
+                        const measured = obs ? measuredRainUntil(obs.precip, day, offset, day === placeToday) : null;
+                        if (measured?.points.length) {
+                            const station = obs.precip.station;
+                            const dist = station?.distanceKm != null ? ` · ${Math.round(station.distanceKm)} km` : '';
+                            sourceEl.textContent = station?.name ? `Messstation: ${station.name}${dist}` : t('log_model_hours');
+                            drawLogChart(measured.points, unit, logRange, bounds, logMetric);
+                            return;
+                        }
+                        sourceEl.textContent = t('log_model_hours');
+                        return loadDayModelHours(lat, lon, day).then(cached => {
+                            if (token !== logDayToken || logRange !== 'day') return;
+                            const points = pointsFromDayModel(cached.rows, 'rain');
+                            drawLogChart(points.length ? points : fallback, unit, logRange, bounds, logMetric);
+                        });
+                    }).catch(() => {
+                        if (token !== logDayToken) return;
+                        drawLogChart(fallback, unit, logRange, bounds, logMetric);
+                    });
+                    return;
+                }
+                drawModel().catch(() => {
                     if (token !== logDayToken) return;
                     drawLogChart(fallback, unit, logRange, bounds, logMetric);
                 });
@@ -1929,8 +1992,33 @@
                 sourceEl.hidden = true;
                 sourceEl.textContent = '';
             }
-            const points = pointsForLog(store?.entries || [], logMetric, logRange, logAnchor);
-            drawLogChart(points, unit, logRange, bounds, logMetric);
+            const lat = activePlace?.lat ?? store?.lat ?? currentLat;
+            const lon = activePlace?.lon ?? store?.lon ?? currentLon;
+            let entries = store?.entries || [];
+            const drawRange = (rows) => {
+                const points = pointsForLog(rows, logMetric, logRange, logAnchor);
+                drawLogChart(points, unit, logRange, bounds, logMetric);
+            };
+            drawRange(entries);
+            if (logMetric === 'rain') {
+                const token = ++logDayToken;
+                ensurePrecipObs(lat, lon).then(obs => {
+                    if (token !== logDayToken || logRange === 'day' || logMetric !== 'rain' || !obs) return;
+                    const offset = placeOffsetSeconds(lat, lon);
+                    const today = new Date(Date.now() + offset * 1000).toISOString().slice(0, 10);
+                    const measured = measuredRainUntil(obs.precip, today, offset, true);
+                    if (!measured) return;
+                    let seen = false;
+                    const patched = entries.map(entry => {
+                        const day = new Date(entry.t + offset * 1000).toISOString().slice(0, 10);
+                        if (day !== today) return entry;
+                        seen = true;
+                        return { ...entry, rain: measured.sum };
+                    });
+                    if (!seen) patched.push({ t: Date.now(), rain: measured.sum });
+                    drawRange(patched);
+                }).catch(() => {});
+            }
         }
 
         function openLogPage() {
@@ -2701,10 +2789,12 @@
             const response = await fetch(`https://api.brightsky.dev/weather?dwd_station_id=${station.id}&date=${start.toISOString().slice(0, 10)}&last_date=${end.toISOString().slice(0, 10)}`);
             if (!response.ok) return null;
             const body = await response.json();
+            const typeById = {};
+            (body.sources || []).forEach(source => { typeById[source.id] = source.observation_type; });
             const hours = {};
             const daily = {};
             for (const row of body.weather || []) {
-                if (row.precipitation == null) continue;
+                if (row.precipitation == null || typeById[row.source_id] === 'forecast') continue;
                 const key = new Date(Date.parse(row.timestamp) + offsetSeconds * 1000).toISOString().slice(0, 13);
                 hours[key] = Number(row.precipitation);
                 const day = key.slice(0, 10);
