@@ -1616,120 +1616,132 @@
             return ticks;
         }
 
-		function drawLogChart(points, unit, range, bounds, metric = '', forecastPoints = null, solidLabel = null) {
-			const host = document.getElementById('log-chart');
-			const forecast = (forecastPoints || []).filter(point => point && point.y != null && !Number.isNaN(Number(point.y)));
-			if (!points.length && !forecast.length) {
-				host.innerHTML = `<div class="log-empty">${t('log_empty')}</div>`;
-				return;
-			}
-			// Luftdruck-Diagramm ist 20 % hoeher (200 -> 240)
-			const h = metric === 'pressure' ? 240 : 200;
-			const w = 340;
-			// Mit Legende oben etwas mehr Platz
-			const pad = { l: 31, r: 10, t: solidLabel ? 22 : 14, b: 28 };
-			host.classList.remove('is-wide');
-			const ys = points.map(point => point.y).concat(forecast.map(point => point.y));
-			let yTicks, minY, maxY;
-			if (metric === 'rain') {
-				// Achse beginnt bei 0, mindestens bis 20 mm, darueber in 10er-Schritten aufgerundet
-				const top = Math.max(20, Math.ceil(Math.max(...ys) / 10) * 10);
-				const steps = [5, 10, 20, 25, 30, 40, 50, 100, 200, 250, 300, 400, 500, 1000, 2000, 5000];
-				const step = steps.find(st => top % st === 0 && top / st <= 7)
-					|| steps.find(st => top / st <= 6)
-					|| top / 4;
-				yTicks = [];
-				for (let v = 0; v <= top + 1e-9; v += step) yTicks.push(Math.round(v * 1e6) / 1e6);
-				minY = 0;
-				maxY = top;
-			} else if (metric === 'pressure') {
-				// Skala 950 bis 1050 hPa, bei Ausreissern in 25er-Schritten erweitert
-				const lo = Math.min(950, Math.floor(Math.min(...ys) / 25) * 25);
-				const hi = Math.max(1050, Math.ceil(Math.max(...ys) / 25) * 25);
-				const step = (hi - lo) <= 150 ? 25 : 50;
-				minY = Math.floor(lo / step) * step;
-				maxY = Math.ceil(hi / step) * step;
-				yTicks = [];
-				for (let v = minY; v <= maxY; v += step) yTicks.push(v);
-			} else {
-				yTicks = niceTicks(Math.min(...ys), Math.max(...ys));
-				minY = yTicks[0];
-				maxY = yTicks[yTicks.length - 1];
-			}
+        function drawLogChart(points, unit, range, bounds, metric = '', forecastPoints = null, solidLabel = null) {
+            const host = document.getElementById('log-chart');
+            const forecast = (forecastPoints || []).filter(point => point && point.y != null && !Number.isNaN(Number(point.y)));
+            if (!points.length && !forecast.length) {
+                host.innerHTML = `<div class="log-empty">${t('log_empty')}</div>`;
+                return;
+            }
+            // Luftdruck-Diagramm ist 20 % hoeher (200 -> 240)
+            const h = metric === 'pressure' ? 240 : 200;
+            const w = 340;
+            // Mit Legende oben etwas mehr Platz
+            const pad = { l: 31, r: 10, t: solidLabel ? 22 : 14, b: 28 };
+            host.classList.remove('is-wide');
+            const ys = points.map(point => point.y).concat(forecast.map(point => point.y));
+            let yTicks, minY, maxY;
+            if (metric === 'rain') {
+                // Achse beginnt bei 0, mindestens bis 20 mm, darueber in 10er-Schritten aufgerundet
+                const top = Math.max(20, Math.ceil(Math.max(...ys) / 10) * 10);
+                const steps = [5, 10, 20, 25, 30, 40, 50, 100, 200, 250, 300, 400, 500, 1000, 2000, 5000];
+                const step = steps.find(st => top % st === 0 && top / st <= 7)
+                    || steps.find(st => top / st <= 6)
+                    || top / 4;
+                yTicks = [];
+                for (let v = 0; v <= top + 1e-9; v += step) yTicks.push(Math.round(v * 1e6) / 1e6);
+                minY = 0;
+                maxY = top;
+            } else if (metric === 'pressure') {
+                // Skala 950 bis 1050 hPa, bei Ausreissern in 25er-Schritten erweitert
+                const lo = Math.min(950, Math.floor(Math.min(...ys) / 25) * 25);
+                const hi = Math.max(1050, Math.ceil(Math.max(...ys) / 25) * 25);
+                const step = (hi - lo) <= 150 ? 25 : 50;
+                minY = Math.floor(lo / step) * step;
+                maxY = Math.ceil(hi / step) * step;
+                yTicks = [];
+                for (let v = minY; v <= maxY; v += step) yTicks.push(v);
+            } else {
+                yTicks = niceTicks(Math.min(...ys), Math.max(...ys));
+                minY = yTicks[0];
+                maxY = yTicks[yTicks.length - 1];
+            }
 
-			// X-Achse: bei Tag/Woche/Monat der komplette Zeitraum, sonst von Punkt zu Punkt
-			const fullRange = (range === 'day' || range === 'week' || range === 'month') && bounds;
-			const minX = fullRange ? bounds.from.getTime() : (points[0] || forecast[0]).x;
-			const maxX = fullRange ? bounds.to.getTime() : (points[points.length - 1] || forecast[forecast.length - 1]).x;
-			const spanX = Math.max(1, maxX - minX);
-			const px = (value) => pad.l + ((value - minX) / spanX) * (w - pad.l - pad.r);
-			const py = (value) => pad.t + (1 - (value - minY) / (maxY - minY)) * (h - pad.t - pad.b);
-			const formatAxis = (value) => String(Math.round(value * 100) / 100);
+            // X-Achse: bei Tag/Woche/Monat der komplette Zeitraum, sonst von Punkt zu Punkt
+            const fullRange = (range === 'day' || range === 'week' || range === 'month') && bounds;
+            const minX = fullRange ? bounds.from.getTime() : (points[0] || forecast[0]).x;
+            const maxX = fullRange ? bounds.to.getTime() : (points[points.length - 1] || forecast[forecast.length - 1]).x;
+            const spanX = Math.max(1, maxX - minX);
+            const px = (value) => pad.l + ((value - minX) / spanX) * (w - pad.l - pad.r);
+            const py = (value) => pad.t + (1 - (value - minY) / (maxY - minY)) * (h - pad.t - pad.b);
+            const formatAxis = (value) => String(Math.round(value * 100) / 100);
 
-			let xTicks;
-			let gridTicks = null;
-			if (range === 'day' && bounds) {
-				const d0 = bounds.from;
-				const at = (hour) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate(), hour).getTime();
-				gridTicks = Array.from({ length: 9 }, (_, i) => ({ x: at(i * 3) }));
-				xTicks = [0, 6, 12, 18, 24].map(hour => ({
-					x: at(hour),
-					label: String(hour % 24).padStart(2, '0') + ':00',
-					anchor: hour === 24 ? 'end' : 'middle'
-				}));
-			} else if (range === 'week' && bounds) {
-				xTicks = Array.from({ length: 7 }, (_, i) => {
-					const day = addDays(bounds.from, i);
-					const noon = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12);
-					return { x: noon.getTime(), label: t('days')[day.getDay()] };
-				});
-			} else if (range === 'month' && bounds) {
-				const y = bounds.from.getFullYear(), m = bounds.from.getMonth();
-				const last = new Date(y, m + 1, 0).getDate();
-				const days = [1, 5, 10, 15, 20, 25];
-				if (last - 25 >= 3) days.push(last);
-				xTicks = days.map(d => ({ x: new Date(y, m, d, 12).getTime(), label: d + '.' }));
-			} else {
-				const step = Math.max(1, Math.ceil(points.length / 4));
-				xTicks = points
-					.filter((_, i) => i % step === 0 || i === points.length - 1)
-					.map(point => ({ x: point.x, label: point.label }));
-			}
+            let xTicks;
+            let gridTicks = null;
+            if (range === 'day' && bounds) {
+                const d0 = bounds.from;
+                const at = (hour) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate(), hour).getTime();
+                gridTicks = Array.from({ length: 9 }, (_, i) => ({ x: at(i * 3) }));
+                xTicks = [0, 6, 12, 18, 24].map(hour => ({
+                    x: at(hour),
+                    label: String(hour % 24).padStart(2, '0') + ':00',
+                    anchor: hour === 24 ? 'end' : 'middle'
+                }));
+            } else if (range === 'week' && bounds) {
+                xTicks = Array.from({ length: 7 }, (_, i) => {
+                    const day = addDays(bounds.from, i);
+                    const noon = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12);
+                    return { x: noon.getTime(), label: t('days')[day.getDay()] };
+                });
+            } else if (range === 'month' && bounds) {
+                const y = bounds.from.getFullYear(), m = bounds.from.getMonth();
+                const last = new Date(y, m + 1, 0).getDate();
+                const days = [1, 5, 10, 15, 20, 25];
+                if (last - 25 >= 3) days.push(last);
+                xTicks = days.map(d => ({ x: new Date(y, m, d, 12).getTime(), label: d + '.' }));
+            } else {
+                const step = Math.max(1, Math.ceil(points.length / 4));
+                xTicks = points
+                    .filter((_, i) => i % step === 0 || i === points.length - 1)
+                    .map(point => ({ x: point.x, label: point.label }));
+            }
 
-			const gridY = yTicks.map(value => {
-				const y = py(value).toFixed(1);
-				return `<line x1="\${pad.l}" y1="\${y}" x2="\${w - pad.r}" y2="\${y}" stroke="#8e8e93" stroke-width="0.6"/>`;
-			}).join('');
-			const gridX = (gridTicks || xTicks).map(tick => {
-				const x = px(tick.x).toFixed(1);
-				return `<line x1="\${x}" y1="\${pad.t}" x2="\${x}" y2="\${h - pad.b}" stroke="#8e8e93" stroke-width="0.6"/>`;
-			}).join('');
-			const line = points.map((point, i) => `$${i ? 'L' : 'M'}$${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
-			const forecastLine = forecast.map((point, i) => `$${i ? 'L' : 'M'}$${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
-			const dots = points.map(point => `<circle cx="\${px(point.x).toFixed(1)}" cy="\${py(point.y).toFixed(1)}" r="3.2" fill="var(--accent-red)"/>`).join('');
-			const yLabels = yTicks.map(value => `<text x="2" y="\${(py(value) + 3).toFixed(1)}" fill="var(--text-muted)" font-size="10">\${formatAxis(value)}</text>`).join('');
-			const xLabels = xTicks.map(tick => `<text x="\${px(tick.x).toFixed(1)}" y="\${h - 6}" text-anchor="\${tick.anchor || 'middle'}" fill="var(--text-muted)" font-size="10">\${tick.label}</text>`).join('');
-			// Legende: rote Linie = gemessen/Modell, gestrichelt = Vorhersage
-			const legend = solidLabel ? `
-				<line x1="\${pad.l + 4}" y1="9" x2="\${pad.l + 18}" y2="9" stroke="var(--accent-red)" stroke-width="2.4"/>
-				<text x="\${pad.l + 22}" y="12" fill="var(--text-muted)" font-size="10">\${solidLabel}</text>
-				\${forecast.length ? `<line x1="\${pad.l + 84}" y1="9" x2="${pad.l + 98}" y2="9" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4"/>
-				<text x="\${pad.l + 102}" y="12" fill="var(--text-muted)" font-size="10">\${t('log_legend_fc')}</text>` : ''}` : '';
-			host.innerHTML = `<svg viewBox="0 0 $${w} $${h}" width="100%" height="${Math.round(210 * h / 200)}">
-				${gridY}
-				${gridX}
-				<text x="\${w - 8}" y="12" text-anchor="end" fill="var(--text-muted)" font-size="10">\${unit}</text>
-				${yLab```javascript
-		els}
-				${legend}
-				<path d="${forecastLine}" fill="none" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round"/>
-				<path d="${line}" fill="none" stroke="var(--accent-red)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
-				${dots}
-				${xLabels}
-			</svg>`;
-			logChartState = { points, forecast, unit, w, h, pad, minX, spanX };
-			clearLogProbe();
-		}
+            const gridY = yTicks.map(value => {
+                const y = py(value).toFixed(1);
+                return `<line x1="\${pad.l}" y1="\${y}" x2="\${w - pad.r}" y2="\${y}" stroke="#8e8e93" stroke-width="0.6"/>`;
+            }).join('');
+            const gridX = (gridTicks || xTicks).map(tick => {
+                const x = px(tick.x).toFixed(1);
+                return `<line x1="\${x}" y1="\${pad.t}" x2="\${x}" y2="\${h - pad.b}" stroke="#8e8e93" stroke-width="0.6"/>`;
+            }).join('');
+            const line = points.map((point, i) => `$${i ? 'L' : 'M'}$${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
+            const forecastLine = forecast.map((point, i) => `$${i ? 'L' : 'M'}$${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
+            const dots = points.map(point => `<circle cx="\${px(point.x).toFixed(1)}" cy="\${py(point.y).toFixed(1)}" r="3.2" fill="var(--accent-red)"/>`).join('');
+            const yLabels = yTicks.map(value => `<text x="2" y="\${(py(value) + 3).toFixed(1)}" fill="var(--text-muted)" font-size="10">\${formatAxis(value)}</text>`).join('');
+            const xLabels = xTicks.map(tick => `<text x="\${px(tick.x).toFixed(1)}" y="\${h - 6}" text-anchor="\${tick.anchor || 'middle'}" fill="var(--text-muted)" font-size="10">\${tick.label}</text>`).join('');
+
+            // Legende: rote Linie = gemessen/Modell, gestrichelt = Vorhersage
+            let legend = '';
+            if (solidLabel) {
+                legend = `<line x1="\${pad.l + 4}" y1="9" x2="\${pad.l + 18}" y2="9" stroke="var(--accent-red)" stroke-width="2.4"/>`
+                    + `<text x="\${pad.l + 22}" y="12" fill="var(--text-muted)" font-size="10">\${solidLabel}</text>`;
+                if (forecast.length) {
+                    legend += `<line x1="\${pad.l + 84}" y1="9" x2="\${pad.l + 98}" y2="9" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4"/>`
+                        + `<text x="\${pad.l + 102}" y="12" fill="var(--text-muted)" font-size="10">\${t('log_legend_fc')}</text>`;
+                }
+            }
+
+            const forecastPath = forecastLine
+                ? `<path d="${forecastLine}" fill="none" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round"/>`
+                : '';
+            const solidPath = line
+                ? `<path d="${line}" fill="none" stroke="var(--accent-red)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`
+                : '';
+
+            host.innerHTML = `<svg viewBox="0 0 $${w} $${h}" width="100%" height="${Math.round(210 * h / 200)}">`
+                + gridY
+                + gridX
+                + `<text x="\${w - 8}" y="12" text-anchor="end" fill="var(--text-muted)" font-size="10">\${unit}</text>`
+                + yLabels
+                + legend
+                + forecastPath
+                + solidPath
+                + dots
+                + xLabels
+                + `</svg>`;
+            logChartState = { points, forecast, unit, w, h, pad, minX, spanX };
+            clearLogProbe();
+        }
 		
         let logChartState = null;
 
