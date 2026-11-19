@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.39">
+    <link rel="manifest" href="manifest.json?v=2.38">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
@@ -12,12 +12,9 @@
     <title>Panda Wetter</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.2.8/wght.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/libre-franklin@5.2.8/wght.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
     
     <style>
         :root {
@@ -410,8 +407,6 @@
         .day-rain-16 .lbl { font-size: 12px; color: var(--text-muted); display: block; }
 
         #map { height: 300px; border-radius: 16px; margin-bottom: 15px; z-index: 1; background: #222; overflow: hidden; }
-        body.light-mode #map { background: #f4f4f4; }
-        .leaflet-gl-layer, .leaflet-gl-layer canvas { pointer-events: none; }
         .dwd-radar { filter: hue-rotate(25deg) saturate(0.85) brightness(1.05); }
         .leaflet-control-attribution {
             font-size: 9px !important;
@@ -777,7 +772,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.39</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.38</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -939,7 +934,7 @@
             }
         };
 
-        const APP_VERSION = '2.39';
+        const APP_VERSION = '2.38';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1204,7 +1199,6 @@
                 document.getElementById('btn-theme-dark').classList.add('active');
                 document.body.classList.remove('light-mode');
             }
-            if (map) applyMapStyle().catch(e => console.error('Kartenstil nicht geladen', e));
         }
 
         // --- 4. SUCHE ---
@@ -5144,41 +5138,20 @@
             showRadarFrame(index);
         }
 
-        let mapBase = null;
-        let mapLabels = null;
-        let mapStyleRun = 0;
-
-        async function applyMapStyle() {
-            if (!map || typeof L.maplibreGL !== 'function') return;
-            const run = ++mapStyleRun;
-            const light = document.body.classList.contains('light-mode');
-            const res = await fetch('https://tiles.openfreemap.org/styles/' + (light ? 'positron' : 'dark'));
-            if (!res.ok) throw new Error('Karte ' + res.status);
-            const style = await res.json();
-            if (run !== mapStyleRun || !map) return;
-            const shared = { version: style.version, sources: style.sources, sprite: style.sprite, glyphs: style.glyphs };
-            const base = Object.assign({}, shared, { layers: style.layers.filter(l => l.type !== 'symbol') });
-            const labels = Object.assign({}, shared, {
-                layers: [{ id: 'labels-clear', type: 'background', paint: { 'background-opacity': 0 } }]
-                    .concat(style.layers.filter(l => l.type === 'symbol'))
-            });
-            const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://openfreemap.org">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/">OpenMapTiles</a>';
-            if (!mapBase) {
-                mapBase = L.maplibreGL({ style: base, attribution: attribution }).addTo(map);
-                mapLabels = L.maplibreGL({ style: labels, pane: 'labels' }).addTo(map);
-            } else {
-                mapBase.getMaplibreMap().setStyle(base);
-                mapLabels.getMaplibreMap().setStyle(labels);
-            }
-        }
-
         async function initMap() {
-            map = L.map('map', { zoomControl: false, attributionControl: true, minZoom: 2, maxZoom: 15 }).setView([currentLat, currentLon], 8);
+            map = L.map('map', { zoomControl: false, attributionControl: true }).setView([currentLat, currentLon], 8);
+            const light = document.body.classList.contains('light-mode');
+            const style = light ? 'light' : 'dark';
             map.createPane('labels');
             map.getPane('labels').style.zIndex = 450;
             map.getPane('labels').style.pointerEvents = 'none';
-            try { await applyMapStyle(); }
-            catch (e) { console.error('OpenFreeMap nicht geladen', e); }
+            L.tileLayer(`https://{s}.basemaps.cartocdn.com/${style}_nolabels/{z}/{x}/{y}{r}.png`, {
+                attribution: '&copy; OpenStreetMap &copy; CARTO',
+                subdomains: 'abcd', maxZoom: 19
+            }).addTo(map);
+            L.tileLayer(`https://{s}.basemaps.cartocdn.com/${style}_only_labels/{z}/{x}/{y}{r}.png`, {
+                subdomains: 'abcd', maxZoom: 19, pane: 'labels'
+            }).addTo(map);
 
             radarMarker = L.circleMarker([currentLat, currentLon], {
                 radius: 8, fillColor: "#e63946", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9, pane: 'markerPane'
