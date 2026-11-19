@@ -1873,23 +1873,39 @@
             return lastPrecipObs;
         }
 
-        function measuredRainUntil(precip, day, offsetSeconds, untilNow) {
-            const now = Date.now();
-            let sum = 0;
-            let any = false;
-            const points = [];
-            for (let hour = 0; hour < 24; hour++) {
-                const key = `${day}T${String(hour).padStart(2, '0')}`;
-                const t = Date.parse(key + ':00:00Z') - offsetSeconds * 1000;
-                if (untilNow && t > now) break;
-                if (precip.hours[key] != null) {
-                    sum += Number(precip.hours[key]);
-                    any = true;
-                }
-                points.push({ x: t, y: Math.round(sum * 10) / 10, label: formatTime(new Date(t)) });
-            }
-            return any ? { sum: Math.round(sum * 10) / 10, points } : null;
-        }
+		// offsetSeconds wird nur noch für den Startpunkt um Mitternacht gebraucht, wenn die erste Stunde fehlt
+		function measuredRainUntil(precip, day, offsetSeconds, untilNow) {
+			const entries = (precip?.byDay?.[day] || []).filter(e => !untilNow || e.t <= Date.now());
+			if (!entries.length) return null;
+
+			const points = [];
+			// Startpunkt 0 mm um Mitternacht (Ortszeit)
+			const first = entries[0];
+			const dayStart = first.key.slice(11, 13) === '01'
+				? first.t - 3600000
+				: Date.parse(`${day}T00:00:00Z`) - offsetSeconds * 1000;
+			points.push({ x: dayStart, y: 0, label: formatTime(new Date(dayStart)) });
+
+			let sum = 0;
+			let missing = 0;
+			let prevT = dayStart;
+			for (const e of entries) {
+				// Fehlende Stunden nur zählen, nicht als 0 mm eintragen. Die Linie verbindet die Lücke.
+				missing += Math.max(0, Math.round((e.t - prevT) / 3600000) - 1);
+				sum += e.mm;
+				prevT = e.t;
+				// Punkt am Ende der Stunde (Fix 7)
+				points.push({ x: e.t, y: Math.round(sum * 10) / 10, label: formatTime(new Date(e.t)) });
+			}
+
+			// Fix 3: Die Linie endet bei der letzten echten Messung, nicht bei "jetzt"
+			return {
+				sum: Math.round(sum * 10) / 10,
+				points,
+				lastT: prevT,   // Startpunkt für die Prognose (siehe Punkt 4)
+				missing         // Zahl der fehlenden Stunden, z. B. für einen Hinweis im Diagramm
+			};
+		}
 
         let todayForecastCache = null;
 
@@ -2862,25 +2878,70 @@
             return { id: found.dwd_station_id, name: found.station_name, distanceKm: found.distance / 1000 };
         }
 
-        async function fetchStationPrecip(station, offsetSeconds) {
-            const end = new Date();
-            const start = new Date(end.getTime() - 62 * 86400000);
-            const response = await fetch(`https://api.brightsky.dev/weather?dwd_station_id=${station.id}&date=${start.toISOString().slice(0, 10)}&last_date=${end.toISOString().slice(0, 10)}`);
-            if (!response.ok) return null;
-            const body = await response.json();
-            const typeById = {};
-            (body.sources || []).forEach(source => { typeById[source.id] = source.observation_type; });
-            const hours = {};
-            const daily = {};
-            for (const row of body.weather || []) {
-                if (row.precipitation == null || typeById[row.source_id] === 'forecast') continue;
-                const key = new Date(Date.parse(row.timestamp) + offsetSeconds * 1000).toISOString().slice(0, 13);
-                hours[key] = Number(row.precipitation);
-                const day = key.slice(0, 10);
-                daily[day] = (daily[day] || 0) + Number(row.precipitation);
-            }
-            return { station, hours, daily };
-        }
+			// DWD-Stationen gibt es nur in Deutschland, deshalb reicht eine feste Zeitzone.
+			const PRECIP_TZ = 'Europe/Berlin';
+			// true: nur Werte der gewählten Station verwenden.
+			// false: auch Werte zulassen, die Bright Sky aus Nachbarstationen ergänzt hat.
+			const PRECIP_STRICT_STATION = true;
+			// Nur diese Quelltypen gelten als echte Messung.
+			const MEASURED_TYPES = new Set(['historical', 'current', 'synop']);
+
+			function hourEndKeyToDay(key) {
+				// Ein Wert gilt für die Stunde davor. "T00" gehört also noch zum Vortag (23 bis 24 Uhr).
+				const day = key.slice(0, 10);
+				return key.slice(11, 13) === '00' ? shiftDayKey(day, -1) : day;
+			}
+
+			// Zweiter Parameter: Zeitzone als Text. Übergibt der alte Aufruf eine Zahl (Offset), wird sie ignoriert.
+			async function fetchStationPrecip(station, tzOrOffset) {
+				const timeZone = typeof tzOrOffset === 'string' ? tzOrOffset : PRECIP_TZ;
+				const today = new Date().toLocaleDateString('sv-SE', { timeZone }); // YYYY-MM-DD in Ortszeit
+				const start = shiftDayKey(today, -62);
+				const end = shiftDayKey(today, 2); // Fix 1: Ende liegt sicher nach dem heutigen Tag
+
+				const url = `https://api.brightsky.dev/weather?dwd_station_id=${encodeURIComponent(station.id)}`
+					+ `&date=\${start}&last_date=\${end}&tz=${encodeURIComponent(timeZone)}`;
+				let response;
+				try {
+					response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+				} catch (e) {
+					return null;
+				}
+				if (!response.ok) return null;
+				const body = await response.json();
+				const sources = body.sources || [];
+				const now = Date.now();
+
+				const hours = {};  // "YYYY-MM-DDTHH" (Ende der Stunde, Ortszeit) -> mm, wie bisher
+				const daily = {};  // "YYYY-MM-DD" -> Summe in mm
+				const byDay = {};  // "YYYY-MM-DD" -> [{ t, mm, key }], sortiert
+
+				for (const row of body.weather || []) {
+					if (row.precipitation == null || Number.isNaN(Number(row.precipitation))) continue;
+
+					// Fix 5: Quelle pro Feld prüfen, damit Werte aus Nachbarstationen auffallen
+					const src = fieldSource(row, sources, 'precipitation');
+					if (!src || !MEASURED_TYPES.has(src.observation_type)) continue;
+					if (PRECIP_STRICT_STATION && src.dwd_station_id && src.dwd_station_id !== station.id) continue;
+
+					// Fix 6: Der Zeitstempel enthält den Offset (z. B. +01:00). Damit stimmt jede Stunde, auch vor und nach der Zeitumstellung.
+					const t = Date.parse(row.timestamp);
+					if (Number.isNaN(t) || t > now) continue;
+					const key = row.timestamp.slice(0, 13);
+					const mm = Number(row.precipitation);
+
+					hours[key] = mm;
+					// Fix 7: Den Wert dem Tag zuordnen, zu dem die gemessene Stunde gehört
+					const day = hourEndKeyToDay(key);
+					daily[day] = (daily[day] || 0) + mm;
+					(byDay[day] = byDay[day] || []).push({ t, mm, key });
+				}
+
+				for (const day of Object.keys(byDay)) byDay[day].sort((a, b) => a.t - b.t);
+				for (const day of Object.keys(daily)) daily[day] = Math.round(daily[day] * 10) / 10;
+
+				return { station, hours, daily, byDay, timeZone, loadedAt: now };
+			}
 
         function applyStationPrecipitation(data, precip) {
             if (!precip || !data.hourly?.time || !data.hourly.precipitation) return;
