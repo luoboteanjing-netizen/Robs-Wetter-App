@@ -1564,6 +1564,7 @@
             });
             return [...buckets.entries()].map(([bucket, rows]) => {
                 const values = rows.map(row => Number(row[spec.key])).filter(value => !Number.isNaN(value));
+                if (!values.length) return { x: rows[0].t, y: NaN, label: '' };
                 let y;
                 if (spec.agg === 'max' && range === 'year') {
                     // Jahresansicht: Tagesgesamtwert (hoechster Eintrag des Tages) pro Tag, dann Summe ueber den Monat
@@ -1593,12 +1594,16 @@
             const bounds = logRangeBounds(anchor, range);
             const inside = entries.filter(entry => entry.t >= bounds.from.getTime() && entry.t < bounds.to.getTime());
             if (range === 'day') {
-                return inside.map(entry => ({
-                    x: entry.t,
-                    y: Number(entry[LOG_METRICS[metric].key]),
-                    label: formatTime(new Date(entry.t))
-                }));
+                const key = LOG_METRICS[metric].key;
+                return inside
+                    .filter(entry => entry[key] != null && Number.isFinite(Number(entry[key])))
+                    .map(entry => ({
+                        x: entry.t,
+                        y: Number(entry[key]),
+                        label: formatTime(new Date(entry.t))
+                    }));
             }
+            return aggregateEntries(inside, metric, range).filter(p => Number.isFinite(p.y));
             return aggregateEntries(inside, metric, range);
         }
 
@@ -1618,7 +1623,10 @@
 
         function drawLogChart(points, unit, range, bounds, metric = '', forecastPoints = null, solidLabel = null) {
             const host = document.getElementById('log-chart');
-            const forecast = (forecastPoints || []).filter(point => point && point.y != null && !Number.isNaN(Number(point.y)));
+            // Nur gueltige Punkte zeichnen: NaN/Infinity machen sonst die ganze Achse kaputt
+            const valid = (p) => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y));
+            points = (points || []).filter(valid).map(p => ({ ...p, y: Number(p.y) }));
+            const forecast = (forecastPoints || []).filter(valid).map(p => ({ ...p, y: Number(p.y) }));
             if (!points.length && !forecast.length) {
                 host.innerHTML = `<div class="log-empty">${t('log_empty')}</div>`;
                 return;
@@ -3101,7 +3109,7 @@
 				[t('src_rain_fc'), rainFc]
 			];
 			if (data.station?.name) rows.push([t('src_press'), `DWD $${data.station.name}$${data.station.distanceKm != null ? ' · ' + Math.round(data.station.distanceKm) + ' km' : ''}`]);
-		rows.push([t('src_radar'), inDwdCoverage() ? 'DWD' : 'RainViewer']);
+			rows.push([t('src_radar'), inDwdCoverage() ? 'DWD' : 'RainViewer']);
 			rows.push([t('src_moon'), (moonApi ? 'Open-Meteo, ' : '') + t('src_calc')]);
 			box.innerHTML = rows.map(([k, v]) => `<p><span style="color:var(--text-muted);font-size:12px;">$${srcEsc(k)}</span><br><strong>$${srcEsc(v)}</strong></p>`).join('');
 		}
