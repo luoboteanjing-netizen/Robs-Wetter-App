@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.38">
+    <link rel="manifest" href="manifest.json?v=2.39">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
@@ -408,6 +408,8 @@
 
         #map { height: 300px; border-radius: 16px; margin-bottom: 15px; z-index: 1; background: #222; overflow: hidden; }
         .dwd-radar { filter: hue-rotate(25deg) saturate(0.85) brightness(1.05); }
+        .map-tiles-gray { filter: grayscale(1) contrast(0.9); }
+        .map-tiles-gray-dark { filter: grayscale(1) invert(1) brightness(0.75) contrast(0.9); }
         .leaflet-control-attribution {
             font-size: 9px !important;
             line-height: 1.2;
@@ -772,7 +774,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.38</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.39</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -934,7 +936,7 @@
             }
         };
 
-        const APP_VERSION = '2.38';
+        const APP_VERSION = '2.39';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -5139,19 +5141,29 @@
         }
 
         async function initMap() {
-            map = L.map('map', { zoomControl: false, attributionControl: true }).setView([currentLat, currentLon], 8);
+            map = L.map('map', { zoomControl: false, attributionControl: true, maxZoom: 16 }).setView([currentLat, currentLon], 8);
             const light = document.body.classList.contains('light-mode');
-            const style = light ? 'light' : 'dark';
+            const esri = light ? 'World_Light_Gray' : 'World_Dark_Gray';
+            const esriUrl = (part) => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${esri}_${part}/MapServer/tile/{z}/{y}/{x}`;
             map.createPane('labels');
             map.getPane('labels').style.zIndex = 450;
             map.getPane('labels').style.pointerEvents = 'none';
-            L.tileLayer(`https://{s}.basemaps.cartocdn.com/${style}_nolabels/{z}/{x}/{y}{r}.png`, {
-                attribution: '&copy; OpenStreetMap &copy; CARTO',
-                subdomains: 'abcd', maxZoom: 19
+            const baseLayer = L.tileLayer(esriUrl('Base'), {
+                attribution: 'Karte &copy; Esri, OpenStreetMap',
+                maxZoom: 16
             }).addTo(map);
-            L.tileLayer(`https://{s}.basemaps.cartocdn.com/${style}_only_labels/{z}/{x}/{y}{r}.png`, {
-                subdomains: 'abcd', maxZoom: 19, pane: 'labels'
+            L.tileLayer(esriUrl('Reference'), {
+                maxZoom: 16, pane: 'labels'
             }).addTo(map);
+            let baseFailed = 0;
+            baseLayer.on('tileerror', () => {
+                if (++baseFailed !== 5) return;
+                map.removeLayer(baseLayer);
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap', maxZoom: 19,
+                    className: light ? 'map-tiles-gray' : 'map-tiles-gray-dark'
+                }).addTo(map);
+            });
 
             radarMarker = L.circleMarker([currentLat, currentLon], {
                 radius: 8, fillColor: "#e63946", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9, pane: 'markerPane'
