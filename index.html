@@ -840,6 +840,13 @@
                 dry_until: "Trocken bis etwa {time}", rain_from: "Regen ab etwa {time}", snow_from: "Schnee ab etwa {time}", thunder_from: "Gewitter ab etwa {time}", max_temp: "Höchstwert", around: "gegen 15 Uhr", rain_risk: "Regenrisiko",
                 days: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
                 trend_high: "Höchstwert", trend_low: "Tiefstwert", trend_around: "gegen"
+				src_rain_meas: "Regen gemessen", src_rain_fc: "Regen Vorhersage",
+				src_rain_none: "Keine DWD-Station mit Regenmessung in 40 km. Bisherige Stunden sind Modellwerte",
+				src_rain_outside: "Keine DWD-Messung (Ort außerhalb Deutschlands). Bisherige Stunden sind Modellwerte",
+				src_rain_err: "DWD-Messwerte nicht abrufbar. Bisherige Stunden sind Modellwerte",
+				log_rain_missing: "{n} Std. ohne Messwert", log_rain_last: "letzte Messung {time}",
+				log_rain_model: "Keine Messwerte, Open-Meteo-Modell",
+				log_legend_meas: "gemessen", log_legend_model: "Modell", log_legend_fc: "Vorhersage",
             },
             en: {
                 app_title: "WEATHER", places: "PLACES", info: "INFO",
@@ -875,6 +882,13 @@
                 dry_until: "Dry until about {time}", rain_from: "Rain from about {time}", snow_from: "Snow from about {time}", thunder_from: "Thunder from about {time}", max_temp: "Max", around: "around 3 PM", rain_risk: "Rain risk",
                 days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
                 trend_high: "High", trend_low: "Low", trend_around: "around"
+				src_rain_meas: "Rain measured", src_rain_fc: "Rain forecast",
+				src_rain_none: "No DWD rain gauge within 40 km. Past hours are model values",
+				src_rain_outside: "No DWD measurements (outside Germany). Past hours are model values",
+				src_rain_err: "DWD measurements unavailable. Past hours are model values",
+				log_rain_missing: "{n} h without reading", log_rain_last: "last reading {time}",
+				log_rain_model: "No readings, Open-Meteo model",
+				log_legend_meas: "measured", log_legend_model: "model", log_legend_fc: "forecast",
             },
             zh: {
                 app_title: "天气", places: "地点", info: "信息",
@@ -910,6 +924,13 @@
                 dry_until: "大约到{time}无降水", rain_from: "大约{time}起有雨", snow_from: "大约{time}起有雪", thunder_from: "大约{time}起有雷暴", max_temp: "最高", around: "约下午3点", rain_risk: "降雨概率",
                 days: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
                 trend_high: "最高", trend_low: "最低", trend_around: "约"
+				src_rain_meas: "实测降水", src_rain_fc: "降水预报",
+				src_rain_none: "40公里内无DWD雨量站，过去时段为模式值",
+				src_rain_outside: "无DWD实测（不在德国），过去时段为模式值",
+				src_rain_err: "无法获取DWD实测，过去时段为模式值",
+				log_rain_missing: "{n}小时无数据", log_rain_last: "最后实测 {time}",
+				log_rain_model: "无实测，Open-Meteo模式",
+				log_legend_meas: "实测", log_legend_model: "模式", log_legend_fc: "预报",
             }
         };
 
@@ -1595,114 +1616,121 @@
             return ticks;
         }
 
-        function drawLogChart(points, unit, range, bounds, metric = '', forecastPoints = null) {
-            const host = document.getElementById('log-chart');
-            const forecast = (forecastPoints || []).filter(point => point && point.y != null && !Number.isNaN(Number(point.y)));
-            if (!points.length && !forecast.length) {
-                host.innerHTML = `<div class="log-empty">${t('log_empty')}</div>`;
-                return;
-            }
-            // pad.l war 46, jetzt 15 px weiter links
-            // Luftdruck-Diagramm ist 20 % hoeher (200 -> 240)
-            const h = metric === 'pressure' ? 240 : 200;
-            const w = 340;
-            const pad = { l: 31, r: 10, t: 14, b: 28 };
-            host.classList.remove('is-wide');
-            const ys = points.map(point => point.y).concat(forecast.map(point => point.y));
-            let yTicks, minY, maxY;
-            if (metric === 'rain') {
-                // z. B. Niederschlag: Achse beginnt bei 0, mindestens bis 20 mm, darueber in 10er-Schritten aufgerundet
-                const top = Math.max(20, Math.ceil(Math.max(...ys) / 10) * 10);
-                const steps = [5, 10, 20, 25, 30, 40, 50, 100, 200, 250, 300, 400, 500, 1000, 2000, 5000];
-                const step = steps.find(st => top % st === 0 && top / st <= 7)
-                    || steps.find(st => top / st <= 6)
-                    || top / 4;
-                yTicks = [];
-                for (let v = 0; v <= top + 1e-9; v += step) yTicks.push(Math.round(v * 1e6) / 1e6);
-                minY = 0;
-                maxY = top;
-            } else if (metric === 'pressure') {
-                // Skala 950 bis 1050 hPa, bei Ausreissern in 25er-Schritten erweitert
-                const lo = Math.min(950, Math.floor(Math.min(...ys) / 25) * 25);
-                const hi = Math.max(1050, Math.ceil(Math.max(...ys) / 25) * 25);
-                const step = (hi - lo) <= 150 ? 25 : 50;
-                minY = Math.floor(lo / step) * step;
-                maxY = Math.ceil(hi / step) * step;
-                yTicks = [];
-                for (let v = minY; v <= maxY; v += step) yTicks.push(v);
-            } else {
-                yTicks = niceTicks(Math.min(...ys), Math.max(...ys));
-                minY = yTicks[0];
-                maxY = yTicks[yTicks.length - 1];
-            }
+		function drawLogChart(points, unit, range, bounds, metric = '', forecastPoints = null, solidLabel = null) {
+			const host = document.getElementById('log-chart');
+			const forecast = (forecastPoints || []).filter(point => point && point.y != null && !Number.isNaN(Number(point.y)));
+			if (!points.length && !forecast.length) {
+				host.innerHTML = `<div class="log-empty">${t('log_empty')}</div>`;
+				return;
+			}
+			// Luftdruck-Diagramm ist 20 % hoeher (200 -> 240)
+			const h = metric === 'pressure' ? 240 : 200;
+			const w = 340;
+			// Mit Legende oben etwas mehr Platz
+			const pad = { l: 31, r: 10, t: solidLabel ? 22 : 14, b: 28 };
+			host.classList.remove('is-wide');
+			const ys = points.map(point => point.y).concat(forecast.map(point => point.y));
+			let yTicks, minY, maxY;
+			if (metric === 'rain') {
+				// Achse beginnt bei 0, mindestens bis 20 mm, darueber in 10er-Schritten aufgerundet
+				const top = Math.max(20, Math.ceil(Math.max(...ys) / 10) * 10);
+				const steps = [5, 10, 20, 25, 30, 40, 50, 100, 200, 250, 300, 400, 500, 1000, 2000, 5000];
+				const step = steps.find(st => top % st === 0 && top / st <= 7)
+					|| steps.find(st => top / st <= 6)
+					|| top / 4;
+				yTicks = [];
+				for (let v = 0; v <= top + 1e-9; v += step) yTicks.push(Math.round(v * 1e6) / 1e6);
+				minY = 0;
+				maxY = top;
+			} else if (metric === 'pressure') {
+				// Skala 950 bis 1050 hPa, bei Ausreissern in 25er-Schritten erweitert
+				const lo = Math.min(950, Math.floor(Math.min(...ys) / 25) * 25);
+				const hi = Math.max(1050, Math.ceil(Math.max(...ys) / 25) * 25);
+				const step = (hi - lo) <= 150 ? 25 : 50;
+				minY = Math.floor(lo / step) * step;
+				maxY = Math.ceil(hi / step) * step;
+				yTicks = [];
+				for (let v = minY; v <= maxY; v += step) yTicks.push(v);
+			} else {
+				yTicks = niceTicks(Math.min(...ys), Math.max(...ys));
+				minY = yTicks[0];
+				maxY = yTicks[yTicks.length - 1];
+			}
 
-            // X-Achse: bei Woche/Monat der komplette Zeitraum, sonst von Punkt zu Punkt
-            const fullRange = (range === 'day' || range === 'week' || range === 'month') && bounds;
-            const minX = fullRange ? bounds.from.getTime() : (points[0] || forecast[0]).x;
-            const maxX = fullRange ? bounds.to.getTime() : (points[points.length - 1] || forecast[forecast.length - 1]).x;
-            const spanX = Math.max(1, maxX - minX);
-            const px = (value) => pad.l + ((value - minX) / spanX) * (w - pad.l - pad.r);
-            const py = (value) => pad.t + (1 - (value - minY) / (maxY - minY)) * (h - pad.t - pad.b);
-            const formatAxis = (value) => String(Math.round(value * 100) / 100);
+			// X-Achse: bei Tag/Woche/Monat der komplette Zeitraum, sonst von Punkt zu Punkt
+			const fullRange = (range === 'day' || range === 'week' || range === 'month') && bounds;
+			const minX = fullRange ? bounds.from.getTime() : (points[0] || forecast[0]).x;
+			const maxX = fullRange ? bounds.to.getTime() : (points[points.length - 1] || forecast[forecast.length - 1]).x;
+			const spanX = Math.max(1, maxX - minX);
+			const px = (value) => pad.l + ((value - minX) / spanX) * (w - pad.l - pad.r);
+			const py = (value) => pad.t + (1 - (value - minY) / (maxY - minY)) * (h - pad.t - pad.b);
+			const formatAxis = (value) => String(Math.round(value * 100) / 100);
 
-            // X-Ticks: { x, label } - pro Beschriftung entsteht unten auch eine Linie
-            let xTicks;
-            let gridTicks = null; // optional: Linien dichter als die Beschriftung
-            if (range === 'day' && bounds) {
-                const d0 = bounds.from;
-                const at = (hour) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate(), hour).getTime();
-                gridTicks = Array.from({ length: 9 }, (_, i) => ({ x: at(i * 3) }));
-                xTicks = [0, 6, 12, 18, 24].map(hour => ({
-                    x: at(hour),
-                    label: String(hour % 24).padStart(2, '0') + ':00',
-                    anchor: hour === 24 ? 'end' : 'middle'
-                }));
-            } else if (range === 'week' && bounds) {
-                xTicks = Array.from({ length: 7 }, (_, i) => {
-                    const day = addDays(bounds.from, i);
-                    const noon = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12);
-                    return { x: noon.getTime(), label: t('days')[day.getDay()] };
-                });
-            } else if (range === 'month' && bounds) {
-                const y = bounds.from.getFullYear(), m = bounds.from.getMonth();
-                const last = new Date(y, m + 1, 0).getDate();
-                const days = [1, 5, 10, 15, 20, 25];
-                if (last - 25 >= 3) days.push(last);
-                xTicks = days.map(d => ({ x: new Date(y, m, d, 12).getTime(), label: d + '.' }));
-            } else {
-                const step = Math.max(1, Math.ceil(points.length / 4));
-                xTicks = points
-                    .filter((_, i) => i % step === 0 || i === points.length - 1)
-                    .map(point => ({ x: point.x, label: point.label }));
-            }
+			let xTicks;
+			let gridTicks = null;
+			if (range === 'day' && bounds) {
+				const d0 = bounds.from;
+				const at = (hour) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate(), hour).getTime();
+				gridTicks = Array.from({ length: 9 }, (_, i) => ({ x: at(i * 3) }));
+				xTicks = [0, 6, 12, 18, 24].map(hour => ({
+					x: at(hour),
+					label: String(hour % 24).padStart(2, '0') + ':00',
+					anchor: hour === 24 ? 'end' : 'middle'
+				}));
+			} else if (range === 'week' && bounds) {
+				xTicks = Array.from({ length: 7 }, (_, i) => {
+					const day = addDays(bounds.from, i);
+					const noon = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12);
+					return { x: noon.getTime(), label: t('days')[day.getDay()] };
+				});
+			} else if (range === 'month' && bounds) {
+				const y = bounds.from.getFullYear(), m = bounds.from.getMonth();
+				const last = new Date(y, m + 1, 0).getDate();
+				const days = [1, 5, 10, 15, 20, 25];
+				if (last - 25 >= 3) days.push(last);
+				xTicks = days.map(d => ({ x: new Date(y, m, d, 12).getTime(), label: d + '.' }));
+			} else {
+				const step = Math.max(1, Math.ceil(points.length / 4));
+				xTicks = points
+					.filter((_, i) => i % step === 0 || i === points.length - 1)
+					.map(point => ({ x: point.x, label: point.label }));
+			}
 
-            const gridY = yTicks.map(value => {
-                const y = py(value).toFixed(1);
-                return `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="#8e8e93" stroke-width="0.6"/>`;
-            }).join('');
-            const gridX = (gridTicks || xTicks).map(tick => {
-                const x = px(tick.x).toFixed(1);
-                return `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${h - pad.b}" stroke="#8e8e93" stroke-width="0.6"/>`;
-            }).join('');
-            const line = points.map((point, i) => `${i ? 'L' : 'M'}${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
-            const forecastLine = forecast.map((point, i) => `${i ? 'L' : 'M'}${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
-            const dots = points.map(point => `<circle cx="${px(point.x).toFixed(1)}" cy="${py(point.y).toFixed(1)}" r="3.2" fill="var(--accent-red)"/>`).join('');
-            const yLabels = yTicks.map(value => `<text x="2" y="${(py(value) + 3).toFixed(1)}" fill="var(--text-muted)" font-size="10">${formatAxis(value)}</text>`).join('');
-            const xLabels = xTicks.map(tick => `<text x="${px(tick.x).toFixed(1)}" y="${h - 6}" text-anchor="${tick.anchor || 'middle'}" fill="var(--text-muted)" font-size="10">${tick.label}</text>`).join('');
-            host.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${Math.round(210 * h / 200)}">
-                ${gridY}
-                ${gridX}
-                <text x="${w - 8}" y="12" text-anchor="end" fill="var(--text-muted)" font-size="10">${unit}</text>
-                ${yLabels}
-                <path d="${forecastLine}" fill="none" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round"/>
-                <path d="${line}" fill="none" stroke="var(--accent-red)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
-                ${dots}
-                ${xLabels}
-            </svg>`;
-            logChartState = { points, forecast, unit, w, h, pad, minX, spanX };
-            clearLogProbe();
-        }
-
+			const gridY = yTicks.map(value => {
+				const y = py(value).toFixed(1);
+				return `<line x1="\${pad.l}" y1="\${y}" x2="\${w - pad.r}" y2="\${y}" stroke="#8e8e93" stroke-width="0.6"/>`;
+			}).join('');
+			const gridX = (gridTicks || xTicks).map(tick => {
+				const x = px(tick.x).toFixed(1);
+				return `<line x1="\${x}" y1="\${pad.t}" x2="\${x}" y2="\${h - pad.b}" stroke="#8e8e93" stroke-width="0.6"/>`;
+			}).join('');
+			const line = points.map((point, i) => `$${i ? 'L' : 'M'}$${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
+			const forecastLine = forecast.map((point, i) => `$${i ? 'L' : 'M'}$${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
+			const dots = points.map(point => `<circle cx="\${px(point.x).toFixed(1)}" cy="\${py(point.y).toFixed(1)}" r="3.2" fill="var(--accent-red)"/>`).join('');
+			const yLabels = yTicks.map(value => `<text x="2" y="\${(py(value) + 3).toFixed(1)}" fill="var(--text-muted)" font-size="10">\${formatAxis(value)}</text>`).join('');
+			const xLabels = xTicks.map(tick => `<text x="\${px(tick.x).toFixed(1)}" y="\${h - 6}" text-anchor="\${tick.anchor || 'middle'}" fill="var(--text-muted)" font-size="10">\${tick.label}</text>`).join('');
+			// Legende: rote Linie = gemessen/Modell, gestrichelt = Vorhersage
+			const legend = solidLabel ? `
+				<line x1="\${pad.l + 4}" y1="9" x2="\${pad.l + 18}" y2="9" stroke="var(--accent-red)" stroke-width="2.4"/>
+				<text x="\${pad.l + 22}" y="12" fill="var(--text-muted)" font-size="10">\${solidLabel}</text>
+				\${forecast.length ? `<line x1="\${pad.l + 84}" y1="9" x2="${pad.l + 98}" y2="9" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4"/>
+				<text x="\${pad.l + 102}" y="12" fill="var(--text-muted)" font-size="10">\${t('log_legend_fc')}</text>` : ''}` : '';
+			host.innerHTML = `<svg viewBox="0 0 $${w} $${h}" width="100%" height="${Math.round(210 * h / 200)}">
+				${gridY}
+				${gridX}
+				<text x="\${w - 8}" y="12" text-anchor="end" fill="var(--text-muted)" font-size="10">\${unit}</text>
+				${yLab```javascript
+		els}
+				${legend}
+				<path d="${forecastLine}" fill="none" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round"/>
+				<path d="${line}" fill="none" stroke="var(--accent-red)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+				${dots}
+				${xLabels}
+			</svg>`;
+			logChartState = { points, forecast, unit, w, h, pad, minX, spanX };
+			clearLogProbe();
+		}
+		
         let logChartState = null;
 
         function formatProbeX(ms) {
@@ -1807,294 +1835,322 @@
             logAnchor = next;
         }
 
-        let dayModelCache = null;
-        let logDayToken = 0;
+		let dayModelCache = null;
+		let logDayToken = 0;
+		const LOG_CACHE_TTL_MS = 10 * 60 * 1000;
 
-        async function loadDayModelHours(lat, lon, day) {
-            const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)},${day}`;
-            if (dayModelCache?.key === key) return dayModelCache;
-            const query = `latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,pressure_msl,precipitation,sunshine_duration&timezone=auto&start_date=${day}&end_date=${day}`;
-            let data = null;
-            try {
-                const res = await fetch(`https://api.open-meteo.com/v1/forecast?${query}`);
-                if (res.ok) data = await res.json();
-            } catch (e) {}
-            if (!data?.hourly?.time?.length) {
-                const res = await fetch(`https://archive-api.open-meteo.com/v1/archive?${query}`);
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                data = await res.json();
-            }
-            const offset = data.utc_offset_seconds || 0;
-            const hourly = data.hourly || {};
-            const placeToday = new Date(Date.now() + offset * 1000).toISOString().slice(0, 10);
-            const rows = [];
-            let sun = 0;
-            let rain = 0;
-            for (let i = 0; i < hourly.time.length; i++) {
-                const stamp = hourly.time[i];
-                const t = Date.parse(stamp.slice(0, 13) + ':00:00Z') - offset * 1000;
-                if (day === placeToday && t > Date.now()) break;
-                sun += Number(hourly.sunshine_duration?.[i] || 0) / 3600;
-                rain += Number(hourly.precipitation?.[i] || 0);
-                rows.push({
-                    t,
-                    temp: hourly.temperature_2m?.[i],
-                    wind: hourly.wind_speed_10m?.[i],
-                    pressure: hourly.pressure_msl?.[i],
-                    sun,
-                    rain
-                });
-            }
-            dayModelCache = { key, rows };
-            return dayModelCache;
-        }
+		async function loadDayModelHours(lat, lon, day) {
+			const key = `$${Number(lat).toFixed(3)},$${Number(lon).toFixed(3)},${day}`;
+			if (dayModelCache?.key === key && (!dayModelCache.today || Date.now() - dayModelCache.loadedAt < LOG_CACHE_TTL_MS)) return dayModelCache;
+			const query = `latitude=$${lat}&longitude=$${lon}&hourly=temperature_2m,wind_speed_10m,pressure_msl,precipitation,sunshine_duration&timezone=auto&start_date=\${day}&end_date=\${day}`;
+			let data = null;
+			try {
+				const res = await fetch(`https://api.open-meteo.com/v1/forecast?${query}`);
+				if (res.ok) data = await res.json();
+			} catch (e) {}
+			if (!data?.hourly?.time?.length) {
+				const res = await fetch(`https://archive-api.open-meteo.com/v1/archive?${query}`);
+				if (!res.ok) throw new Error('HTTP ' + res.status);
+				data = await res.json();
+			}
+			const offset = data.utc_offset_seconds || 0;
+			const hourly = data.hourly || {};
+			const placeToday = new Date(Date.now() + offset * 1000).toISOString().slice(0, 10);
+			const rows = [];
+			let sun = 0;
+			let rain = 0;
+			for (let i = 0; i < (hourly.time || []).length; i++) {
+				const stamp = hourly.time[i];
+				const t = Date.parse(stamp.slice(0, 13) + ':00:00Z') - offset * 1000;
+				if (day === placeToday && t > Date.now()) break;
+				// null nicht als 0 zaehlen
+				const s = hourly.sunshine_duration?.[i];
+				const p = hourly.precipitation?.[i];
+				if (s != null) sun += Number(s) / 3600;
+				if (p != null) rain += Number(p);
+				rows.push({
+					t,
+					temp: hourly.temperature_2m?.[i],
+					wind: hourly.wind_speed_10m?.[i],
+					pressure: hourly.pressure_msl?.[i],
+					sun,
+					rain
+				});
+			}
+			dayModelCache = { key, rows, today: day === placeToday, loadedAt: Date.now() };
+			return dayModelCache;
+		}
 
-        function placeOffsetSeconds(lat, lon) {
-            if (lastWeatherData && Math.abs((lastWeatherData.latitude ?? currentLat) - lat) < 0.05 && Math.abs((lastWeatherData.longitude ?? currentLon) - lon) < 0.05) {
-                return lastWeatherData.utc_offset_seconds || 0;
-            }
-            return -new Date().getTimezoneOffset() * 60;
-        }
+		function placeOffsetSeconds(lat, lon) {
+			if (lastWeatherData && Math.abs((lastWeatherData.latitude ?? currentLat) - lat) < 0.05 && Math.abs((lastWeatherData.longitude ?? currentLon) - lon) < 0.05) {
+				return lastWeatherData.utc_offset_seconds || 0;
+			}
+			return -new Date().getTimezoneOffset() * 60;
+		}
 
-        async function ensurePrecipObs(lat, lon) {
-            if (lastPrecipObs && Math.abs(lastPrecipObs.lat - lat) < 0.02 && Math.abs(lastPrecipObs.lon - lon) < 0.02 && lastPrecipObs.precip?.hours) {
-                return lastPrecipObs;
-            }
-            const saved = readLog(resolveLogKey(lat, lon, ''))?.precipStation;
-            const station = await findPrecipStation(lat, lon, saved?.id);
-            if (!station) return null;
-            if (station.keepName && saved?.name) {
-                station.name = saved.name;
-                station.distanceKm = saved.distanceKm;
-            }
-            const precip = await fetchStationPrecip(station, placeOffsetSeconds(lat, lon));
-            if (!precip) return null;
-            lastPrecipObs = { lat, lon, station, precip };
-            return lastPrecipObs;
-        }
+		// Messwerte max. 10 Minuten wiederverwenden, die Station selbst bleibt laenger gemerkt
+		function precipObsFresh(lat, lon) {
+			return !!(lastPrecipObs
+				&& Math.abs(lastPrecipObs.lat - lat) < 0.02
+				&& Math.abs(lastPrecipObs.lon - lon) < 0.02
+				&& lastPrecipObs.precip?.loadedAt
+				&& Date.now() - lastPrecipObs.precip.loadedAt < LOG_CACHE_TTL_MS);
+		}
 
-		// offsetSeconds wird nur noch für den Startpunkt um Mitternacht gebraucht, wenn die erste Stunde fehlt
+		async function ensurePrecipObs(lat, lon) {
+			if (precipObsFresh(lat, lon)) return lastPrecipObs;
+			const saved = readLog(resolveLogKey(lat, lon, ''))?.precipStation;
+			const station = await findPrecipStation(lat, lon, saved?.id);
+			if (!station) return null;
+			if (station.keepName && saved?.name) {
+				station.name = saved.name;
+				station.distanceKm = saved.distanceKm;
+			}
+			const precip = await fetchStationPrecip(station);
+			if (!precip) return null;
+			lastPrecipObs = { lat, lon, station, precip };
+			return lastPrecipObs;
+		}
+
+		// offsetSeconds wird nur fuer den Startpunkt um Mitternacht gebraucht
 		function measuredRainUntil(precip, day, offsetSeconds, untilNow) {
 			const entries = (precip?.byDay?.[day] || []).filter(e => !untilNow || e.t <= Date.now());
 			if (!entries.length) return null;
-
 			const points = [];
-			// Startpunkt 0 mm um Mitternacht (Ortszeit)
 			const first = entries[0];
 			const dayStart = first.key.slice(11, 13) === '01'
 				? first.t - 3600000
 				: Date.parse(`${day}T00:00:00Z`) - offsetSeconds * 1000;
 			points.push({ x: dayStart, y: 0, label: formatTime(new Date(dayStart)) });
-
 			let sum = 0;
 			let missing = 0;
 			let prevT = dayStart;
 			for (const e of entries) {
-				// Fehlende Stunden nur zählen, nicht als 0 mm eintragen. Die Linie verbindet die Lücke.
 				missing += Math.max(0, Math.round((e.t - prevT) / 3600000) - 1);
 				sum += e.mm;
 				prevT = e.t;
-				// Punkt am Ende der Stunde (Fix 7)
 				points.push({ x: e.t, y: Math.round(sum * 10) / 10, label: formatTime(new Date(e.t)) });
 			}
-
-			// Fix 3: Die Linie endet bei der letzten echten Messung, nicht bei "jetzt"
-			return {
-				sum: Math.round(sum * 10) / 10,
-				points,
-				lastT: prevT,   // Startpunkt für die Prognose (siehe Punkt 4)
-				missing         // Zahl der fehlenden Stunden, z. B. für einen Hinweis im Diagramm
-			};
+			return { sum: Math.round(sum * 10) / 10, points, lastT: prevT, missing };
 		}
 
-        let todayForecastCache = null;
+		let todayForecastCache = null;
 
-        async function loadTodayForecast(lat, lon, day) {
-            const model = weatherModel() === 'best' ? '' : '&models=icon_d2';
-            const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)},${day},${model}`;
-            if (todayForecastCache?.key === key) return todayForecastCache.rows;
-            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation&timezone=auto&start_date=${day}&end_date=${day}${model}`, { cache: 'no-store' });
-            if (!res.ok) return [];
-            const data = await res.json();
-            const offset = data.utc_offset_seconds || 0;
-            const hourly = data.hourly || {};
-            const rows = [];
-            let rain = 0;
-            for (let i = 0; i < (hourly.time || []).length; i++) {
-                const stamp = hourly.time[i];
-                if (!stamp.startsWith(day)) continue;
-                rain += Number(hourly.precipitation?.[i] || 0);
-                rows.push({
-                    t: Date.parse(stamp.slice(0, 13) + ':00:00Z') - offset * 1000,
-                    temp: hourly.temperature_2m?.[i],
-                    rain: Math.round(rain * 10) / 10
-                });
-            }
-            todayForecastCache = { key, rows };
-            return rows;
-        }
+		async function loadTodayForecast(lat, lon, day) {
+			const model = weatherModel() === 'best' ? '' : '&models=icon_d2';
+			const key = `$${Number(lat).toFixed(3)},$${Number(lon).toFixed(3)},$${day},$${model},v2`;
+			if (todayForecastCache?.key === key && Date.now() - todayForecastCache.loadedAt < LOG_CACHE_TTL_MS) return todayForecastCache.rows;
+			const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=$${lat}&longitude=$${lon}&hourly=temperature_2m,precipitation&timezone=auto&start_date=\${day}&end_date=\${shiftDayKey(day, 1)}${model}`, { cache: 'no-store' });
+			if (!res.ok) return [];
+			const data = await res.json();
+			const offset = data.utc_offset_seconds || 0;
+			const hourly = data.hourly || {};
+			const nextMidnight = `${shiftDayKey(day, 1)}T00`;
+			const rows = [];
+			let rain = 0;
+			for (let i = 0; i < (hourly.time || []).length; i++) {
+				const stamp = hourly.time[i];
+				// Tag plus 00:00 des Folgetags (= Stunde 23-24 Uhr)
+				if (!stamp.startsWith(day) && stamp.slice(0, 13) !== nextMidnight) continue;
+				const mm = hourly.precipitation?.[i];
+				if (mm != null) rain += Number(mm);
+				rows.push({
+					t: Date.parse(stamp.slice(0, 13) + ':00:00Z') - offset * 1000,
+					temp: hourly.temperature_2m?.[i],
+					mm: mm == null ? null : Number(mm),
+					rain: Math.round(rain * 10) / 10
+				});
+			}
+			todayForecastCache = { key, rows, loadedAt: Date.now() };
+			return rows;
+		}
 
-        function forecastPointsFor(rows, metric) {
-            const field = metric === 'rain' ? 'rain' : 'temp';
-            return rows.filter(row => row[field] != null && !Number.isNaN(Number(row[field]))).map(row => ({ x: row.t, y: Number(row[field]) }));
-        }
+		function forecastPointsFor(rows, metric) {
+			const field = metric === 'rain' ? 'rain' : 'temp';
+			return rows.filter(row => row[field] != null && !Number.isNaN(Number(row[field]))).map(row => ({ x: row.t, y: Number(row[field]) }));
+		}
 
-        function pointsFromDayModel(rows, metric) {
-            const field = LOG_METRICS[metric].key;
-            return rows.filter(row => row[field] != null && !Number.isNaN(Number(row[field]))).map(row => ({
-                x: row.t,
-                y: Math.round(Number(row[field]) * 10) / 10,
-                label: formatTime(new Date(row.t))
-            }));
-        }
+		function pointsFromDayModel(rows, metric) {
+			const field = LOG_METRICS[metric].key;
+			return rows.filter(row => row[field] != null && !Number.isNaN(Number(row[field]))).map(row => ({
+				x: row.t,
+				y: Math.round(Number(row[field]) * 10) / 10,
+				label: formatTime(new Date(row.t))
+			}));
+		}
 
-        function renderLogPage() {
-            const index = readLogIndex();
-            const placeBtn = document.getElementById('log-place-btn');
-            const placeList = document.getElementById('log-place-list');
-            const currentKey = resolveLogKey(currentLat, currentLon, currentCityName);
-            if (!logPlaceKey) logPlaceKey = currentKey;
-            if (!index.some(item => item.key === logPlaceKey)) logPlaceKey = index[0]?.key || currentKey;
-            const placeItems = index.map(item => ({ ...item, size: logSizeBytes(item.key) }));
-            const activePlace = placeItems.find(item => item.key === logPlaceKey);
-            placeBtn.innerHTML = `<span class="place-name">${escapeLogHtml(activePlace?.name || currentCityName)}</span>
-                <span class="place-size">${activePlace ? formatBytes(activePlace.size) : ''}</span><span>${logPlaceOpen ? '▴' : '▾'}</span>`;
-            placeBtn.setAttribute('aria-expanded', String(logPlaceOpen));
-            placeList.hidden = !logPlaceOpen;
-            placeList.innerHTML = placeItems.length
-                ? placeItems.map(item => `
-                    <div class="place-item ${item.key === logPlaceKey ? 'active' : ''}" data-key="${escapeLogHtml(item.key)}">
-                        <span class="place-name">${escapeLogHtml(item.name)}</span>
-                        <span class="place-size">${formatBytes(item.size)}</span>
-                        <button type="button" class="place-del" data-del="${escapeLogHtml(item.key)}" aria-label="${t('log_delete')}" title="${t('log_delete')}">
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>
-                        </button>
-                    </div>`).join('')
-                : `<div class="place-empty">${t('log_no_places')}</div>`;
+		// Gestrichelte Linie beginnt beim letzten Messwert und addiert nur Modellstunden danach
+		function anchorForecast(start, rows) {
+			if (!start || !rows?.length) return null;
+			let sum = start.sum;
+			const out = [{ x: start.lastT, y: sum }];
+			for (const r of rows) {
+				if (r.t <= start.lastT || r.mm == null) continue;
+				sum += r.mm;
+				out.push({ x: r.t, y: Math.round(sum * 10) / 10 });
+			}
+			return out.length > 1 ? out : null;
+		}
 
-            document.getElementById('log-metrics').innerHTML = Object.keys(LOG_METRICS).map(key =>
-                `<button type="button" class="log-switch ${logMetric === key ? 'active' : ''}" data-metric="${key}">${t('log_' + key)}</button>`
-            ).join('');
-            document.getElementById('log-ranges').innerHTML = ['day', 'week', 'month', 'year'].map(key =>
-                `<button type="button" class="log-switch ${logRange === key ? 'active' : ''}" data-range="${key}">${t('log_' + key)}</button>`
-            ).join('');
+		function rainSourceText(station, measured, isToday) {
+			const dist = station?.distanceKm != null ? ` · ${Math.round(station.distanceKm)} km` : '';
+			const parts = [`Messstation: $${station?.name || station?.id || 'DWD'}$${dist}`];
+			if (measured.missing > 0) parts.push(t('log_rain_missing').replace('{n}', measured.missing));
+			if (isToday && Date.now() - measured.lastT > 90 * 60000) {
+				parts.push(t('log_rain_last').replace('{time}', formatTime(new Date(measured.lastT))));
+			}
+			return parts.join(' · ');
+		}
 
-            const dateInput = document.getElementById('log-date');
-            const monthInput = document.getElementById('log-month');
-            const yearInput = document.getElementById('log-year');
-            dateInput.hidden = logRange === 'month' || logRange === 'year';
-            monthInput.hidden = logRange !== 'month';
-            yearInput.hidden = logRange !== 'year';
-            dateInput.value = isoDay(logAnchor);
-            monthInput.value = isoDay(logAnchor).slice(0, 7);
-            const years = new Set(index.flatMap(item => (readLog(item.key)?.entries || []).map(entry => new Date(entry.t).getFullYear())));
-            years.add(new Date().getFullYear());
-            yearInput.innerHTML = [...years].sort().map(year => `<option value="${year}">${year}</option>`).join('');
-            yearInput.value = String(logAnchor.getFullYear());
+		function renderLogPage() {
+			const index = readLogIndex();
+			const placeBtn = document.getElementById('log-place-btn');
+			const placeList = document.getElementById('log-place-list');
+			const currentKey = resolveLogKey(currentLat, currentLon, currentCityName);
+			if (!logPlaceKey) logPlaceKey = currentKey;
+			if (!index.some(item => item.key === logPlaceKey)) logPlaceKey = index[0]?.key || currentKey;
+			const placeItems = index.map(item => ({ ...item, size: logSizeBytes(item.key) }));
+			const activePlace = placeItems.find(item => item.key === logPlaceKey);
+			placeBtn.innerHTML = `<span class="place-name">${escapeLogHtml(activePlace?.name || currentCityName)}</span>
+				<span class="place-size">$${activePlace ? formatBytes(activePlace.size) : ''}</span><span>$${logPlaceOpen ? '▴' : '▾'}</span>`;
+			placeBtn.setAttribute('aria-expanded', String(logPlaceOpen));
+			placeList.hidden = !logPlaceOpen;
+			placeList.innerHTML = placeItems.length
+				? placeItems.map(item => `
+					<div class="place-item \${item.key === logPlaceKey ? 'active' : ''}" data-key="\${escapeLogHtml(item.key)}">
+						<span class="place-name">${escapeLogHtml(item.name)}</span>
+						<span class="place-size">${formatBytes(item.size)}</span>
+						<button type="button" class="place-del" data-del="\${escapeLogHtml(item.key)}" aria-label="\${t('log_delete')}" title="${t('log_delete')}">
+							<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>
+						</button>
+					</div>`).join('')
+				: `<div class="place-empty">${t('log_no_places')}</```javascript
+		div>`;
 
-            const store = readLog(logPlaceKey);
-            const sourceEl = document.getElementById('log-source');
-            const bounds = logRangeBounds(logAnchor, logRange);
-            const unit = LOG_METRICS[logMetric].unit;
-            if (logRange === 'day') {
-                sourceEl.hidden = false;
-                sourceEl.textContent = t('log_model_hours');
-                const lat = activePlace?.lat ?? store?.lat ?? currentLat;
-                const lon = activePlace?.lon ?? store?.lon ?? currentLon;
-                const day = isoDay(logAnchor);
-                const token = ++logDayToken;
-                const fallback = pointsForLog(store?.entries || [], logMetric, logRange, logAnchor);
-                drawLogChart(fallback, unit, logRange, bounds, logMetric);
-                const withForecast = (solid) => {
-                    const offset = placeOffsetSeconds(lat, lon);
-                    const placeToday = new Date(Date.now() + offset * 1000).toISOString().slice(0, 10);
-                    if (day !== placeToday || (logMetric !== 'rain' && logMetric !== 'temp')) return Promise.resolve(null);
-                    return loadTodayForecast(lat, lon, day).then(rows => forecastPointsFor(rows, logMetric)).catch(() => null);
-                };
-                const drawModel = () => loadDayModelHours(lat, lon, day).then(cached => {
-                    if (token !== logDayToken || logRange !== 'day' || logMetric === 'rain') return;
-                    const points = pointsFromDayModel(cached.rows, logMetric);
-                    const solid = points.length ? points : fallback;
-                    return withForecast(solid).then(forecast => {
-                        if (token !== logDayToken || logRange !== 'day') return;
-                        drawLogChart(solid, unit, logRange, bounds, logMetric, forecast);
-                    });
-                });
-                if (logMetric === 'rain') {
-                    ensurePrecipObs(lat, lon).then(obs => {
-                        if (token !== logDayToken || logRange !== 'day' || logMetric !== 'rain') return;
-                        const offset = placeOffsetSeconds(lat, lon);
-                        const placeToday = new Date(Date.now() + offset * 1000).toISOString().slice(0, 10);
-                        const measured = obs ? measuredRainUntil(obs.precip, day, offset, day === placeToday) : null;
-                        if (measured?.points.length) {
-                            const station = obs.precip.station;
-                            const dist = station?.distanceKm != null ? ` · ${Math.round(station.distanceKm)} km` : '';
-                            sourceEl.textContent = station?.name ? `Messstation: ${station.name}${dist}` : t('log_model_hours');
-                            return withForecast(measured.points).then(forecast => {
-                                if (token !== logDayToken || logRange !== 'day') return;
-                                drawLogChart(measured.points, unit, logRange, bounds, logMetric, forecast);
-                            });
-                        }
-                        sourceEl.textContent = t('log_model_hours');
-                        return loadDayModelHours(lat, lon, day).then(cached => {
-                            if (token !== logDayToken || logRange !== 'day') return;
-                            const points = pointsFromDayModel(cached.rows, 'rain');
-                            const solid = points.length ? points : fallback;
-                            return withForecast(solid).then(forecast => {
-                                if (token !== logDayToken || logRange !== 'day') return;
-                                drawLogChart(solid, unit, logRange, bounds, logMetric, forecast);
-                            });
-                        });
-                    }).catch(() => {
-                        if (token !== logDayToken) return;
-                        drawLogChart(fallback, unit, logRange, bounds, logMetric);
-                    });
-                    return;
-                }
-                drawModel().catch(() => {
-                    if (token !== logDayToken) return;
-                    drawLogChart(fallback, unit, logRange, bounds, logMetric);
-                });
-                return;
-            }
-            if (logMetric === 'rain' && store?.precipStation?.name) {
-                const station = store.precipStation;
-                const dist = station.distanceKm != null ? ` · ${Math.round(station.distanceKm)} km` : '';
-                sourceEl.hidden = false;
-                sourceEl.textContent = `Messstation: ${station.name}${dist}`;
-            } else {
-                sourceEl.hidden = true;
-                sourceEl.textContent = '';
-            }
-            const lat = activePlace?.lat ?? store?.lat ?? currentLat;
-            const lon = activePlace?.lon ?? store?.lon ?? currentLon;
-            let entries = store?.entries || [];
-            const drawRange = (rows) => {
-                const points = pointsForLog(rows, logMetric, logRange, logAnchor);
-                drawLogChart(points, unit, logRange, bounds, logMetric);
-            };
-            drawRange(entries);
-            if (logMetric === 'rain') {
-                const token = ++logDayToken;
-                ensurePrecipObs(lat, lon).then(obs => {
-                    if (token !== logDayToken || logRange === 'day' || logMetric !== 'rain' || !obs) return;
-                    const offset = placeOffsetSeconds(lat, lon);
-                    const today = new Date(Date.now() + offset * 1000).toISOString().slice(0, 10);
-                    const measured = measuredRainUntil(obs.precip, today, offset, true);
-                    if (!measured) return;
-                    let seen = false;
-                    const patched = entries.map(entry => {
-                        const day = new Date(entry.t + offset * 1000).toISOString().slice(0, 10);
-                        if (day !== today) return entry;
-                        seen = true;
-                        return { ...entry, rain: measured.sum };
-                    });
-                    if (!seen) patched.push({ t: Date.now(), rain: measured.sum });
-                    drawRange(patched);
-                }).catch(() => {});
-            }
-        }
+			document.getElementById('log-metrics').innerHTML = Object.keys(LOG_METRICS).map(key =>
+				`<button type="button" class="log-switch \${logMetric === key ? 'active' : ''}" data-metric="\${key}">${t('log_' + key)}</button>`
+			).join('');
+			document.getElementById('log-ranges').innerHTML = ['day', 'week', 'month', 'year'].map(key =>
+				`<button type="button" class="log-switch \${logRange === key ? 'active' : ''}" data-range="\${key}">${t('log_' + key)}</button>`
+			).join('');
 
+			const dateInput = document.getElementById('log-date');
+			const monthInput = document.getElementById('log-month');
+			const yearInput = document.getElementById('log-year');
+			dateInput.hidden = logRange === 'month' || logRange === 'year';
+			monthInput.hidden = logRange !== 'month';
+			yearInput.hidden = logRange !== 'year';
+			dateInput.value = isoDay(logAnchor);
+			monthInput.value = isoDay(logAnchor).slice(0, 7);
+			const years = new Set(index.flatMap(item => (readLog(item.key)?.entries || []).map(entry => new Date(entry.t).getFullYear())));
+			years.add(new Date().getFullYear());
+			yearInput.innerHTML = [...years].sort().map(year => `<option value="\${year}">\${year}</option>`).join('');
+			yearInput.value = String(logAnchor.getFullYear());
+
+			const store = readLog(logPlaceKey);
+			const sourceEl = document.getElementById('log-source');
+			const bounds = logRangeBounds(logAnchor, logRange);
+			const unit = LOG_METRICS[logMetric].unit;
+			const lat = activePlace?.lat ?? store?.lat ?? currentLat;
+			const lon = activePlace?.lon ?? store?.lon ?? currentLon;
+
+			if (logRange === 'day') {
+				sourceEl.hidden = false;
+				sourceEl.textContent = t('log_model_hours');
+				const day = isoDay(logAnchor);
+				const token = ++logDayToken;
+				const offset = placeOffsetSeconds(lat, lon);
+				const isToday = day === dayKeyFromOffset(offset);
+				const fallback = pointsForLog(store?.entries || [], logMetric, logRange, logAnchor);
+				drawLogChart(fallback, unit, logRange, bounds, logMetric);
+
+				// --- Regen: Messung (rot) + Vorhersage ab letzter Messung (gestrichelt) ---
+				if (logMetric === 'rain') {
+					const alive = () => token === logDayToken && logRange === 'day' && logMetric === 'rain';
+					Promise.all([
+						ensurePrecipObs(lat, lon).catch(() => null),
+						isToday ? loadTodayForecast(lat, lon, day).catch(() => []) : Promise.resolve([])
+					]).then(async ([obs, fcRows]) => {
+						if (!alive()) return;
+						const measured = obs ? measuredRainUntil(obs.precip, day, offset, isToday) : null;
+						if (measured) {
+							sourceEl.textContent = rainSourceText(obs.precip.station, measured, isToday);
+							const forecast = isToday ? anchorForecast(measured, fcRows) : null;
+							drawLogChart(measured.points, unit, logRange, bounds, logMetric, forecast, t('log_legend_meas'));
+							return;
+						}
+						// Keine Messung: Modell als durchgezogene Linie, klar gekennzeichnet
+						sourceEl.textContent = t('log_rain_model');
+						const cached = await loadDayModelHours(lat, lon, day);
+						if (!alive()) return;
+						const points = pointsFromDayModel(cached.rows, 'rain');
+						const solid = points.length ? points : fallback;
+						const last = solid[solid.length - 1];
+						const forecast = isToday && last ? anchorForecast({ lastT: last.x, sum: last.y }, fcRows) : null;
+						drawLogChart(solid, unit, logRange, bounds, logMetric, forecast, t('log_legend_model'));
+					}).catch(() => {
+						if (alive()) drawLogChart(fallback, unit, logRange, bounds, logMetric);
+					});
+					return;
+				}
+
+				// --- Andere Werte: Modellstunden, bei Temperatur heute mit Vorhersage ---
+				const alive = () => token === logDayToken && logRange === 'day';
+				loadDayModelHours(lat, lon, day).then(async cached => {
+					if (!alive()) return;
+					const points = pointsFromDayModel(cached.rows, logMetric);
+					const solid = points.length ? points : fallback;
+					let forecast = null;
+					if (isToday && logMetric === 'temp') {
+						const rows = await loadTodayForecast(lat, lon, day).catch(() => []);
+						const lastT = solid[solid.length - 1]?.x ?? -Infinity;
+						forecast = forecastPointsFor(rows, 'temp').filter(p => p.x >= lastT);
+					}
+					if (!alive()) return;
+					drawLogChart(solid, unit, logRange, bounds, logMetric, forecast);
+				}).catch(() => {
+					if (alive()) drawLogChart(fallback, unit, logRange, bounds, logMetric);
+				});
+				return;
+			}
+
+			// --- Woche / Monat / Jahr ---
+			if (logMetric === 'rain' && store?.precipStation?.name) {
+				const station = store.precipStation;
+				const dist = station.distanceKm != null ? ` · ${Math.round(station.distanceKm)} km` : '';
+				sourceEl.hidden = false;
+				sourceEl.textContent = `Messstation: $${station.name}$${dist}`;
+			} else {
+				sourceEl.hidden = true;
+				sourceEl.textContent = '';
+			}
+			const entries = store?.entries || [];
+			const drawRange = (rows) => {
+				const points = pointsForLog(rows, logMetric, logRange, logAnchor);
+				drawLogChart(points, unit, logRange, bounds, logMetric);
+			};
+			drawRange(entries);
+			if (logMetric === 'rain') {
+				const token = ++logDayToken;
+				ensurePrecipObs(lat, lon).then(obs => {
+					if (token !== logDayToken || logRange === 'day' || logMetric !== 'rain' || !obs) return;
+					const offset = placeOffsetSeconds(lat, lon);
+					const today = dayKeyFromOffset(offset);
+					const measured = measuredRainUntil(obs.precip, today, offset, true);
+					if (!measured) return;
+					let seen = false;
+					const patched = entries.map(entry => {
+						const day = new Date(entry.t + offset * 1000).toISOString().slice(0, 10);
+						if (day !== today) return entry;
+						seen = true;
+						return { ...entry, rain: measured.sum };
+					});
+					if (!seen) patched.push({ t: Date.now(), rain: measured.sum });
+					drawRange(patched);
+				}).catch(() => {});
+			}
+		}
+		
         function openLogPage() {
             openPage('page-log');
             logPlaceOpen = false;
@@ -2877,72 +2933,59 @@
             if (!found) return null;
             return { id: found.dwd_station_id, name: found.station_name, distanceKm: found.distance / 1000 };
         }
+		
+		// DWD-Stationen gibt es nur in Deutschland, deshalb reicht eine feste Zeitzone.
+		const PRECIP_TZ = 'Europe/Berlin';
+		// true: nur Werte der gewaehlten Station. false: auch von Bright Sky ergaenzte Nachbarwerte.
+		const PRECIP_STRICT_STATION = true;
+		// Nur diese Quelltypen gelten als echte Messung.
+		const MEASURED_TYPES = new Set(['historical', 'current', 'synop']);
 
-			// DWD-Stationen gibt es nur in Deutschland, deshalb reicht eine feste Zeitzone.
-			const PRECIP_TZ = 'Europe/Berlin';
-			// true: nur Werte der gewählten Station verwenden.
-			// false: auch Werte zulassen, die Bright Sky aus Nachbarstationen ergänzt hat.
-			const PRECIP_STRICT_STATION = true;
-			// Nur diese Quelltypen gelten als echte Messung.
-			const MEASURED_TYPES = new Set(['historical', 'current', 'synop']);
+		function hourEndKeyToDay(key) {
+			// Ein Wert gilt fuer die Stunde davor. "T00" gehoert also zum Vortag (23 bis 24 Uhr).
+			const day = key.slice(0, 10);
+			return key.slice(11, 13) === '00' ? shiftDayKey(day, -1) : day;
+		}
 
-			function hourEndKeyToDay(key) {
-				// Ein Wert gilt für die Stunde davor. "T00" gehört also noch zum Vortag (23 bis 24 Uhr).
-				const day = key.slice(0, 10);
-				return key.slice(11, 13) === '00' ? shiftDayKey(day, -1) : day;
+		async function fetchStationPrecip(station, tzOrOffset) {
+			const timeZone = typeof tzOrOffset === 'string' ? tzOrOffset : PRECIP_TZ;
+			const today = new Date().toLocaleDateString('sv-SE', { timeZone });
+			const start = shiftDayKey(today, -62);
+			const end = shiftDayKey(today, 2);
+			const url = `https://api.brightsky.dev/weather?dwd_station_id=${encodeURIComponent(station.id)}`
+				+ `&date=\${start}&last_date=\${end}&tz=${encodeURIComponent(timeZone)}`;
+			let response;
+			try {
+				response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+			} catch (e) {
+				return null;
 			}
-
-			// Zweiter Parameter: Zeitzone als Text. Übergibt der alte Aufruf eine Zahl (Offset), wird sie ignoriert.
-			async function fetchStationPrecip(station, tzOrOffset) {
-				const timeZone = typeof tzOrOffset === 'string' ? tzOrOffset : PRECIP_TZ;
-				const today = new Date().toLocaleDateString('sv-SE', { timeZone }); // YYYY-MM-DD in Ortszeit
-				const start = shiftDayKey(today, -62);
-				const end = shiftDayKey(today, 2); // Fix 1: Ende liegt sicher nach dem heutigen Tag
-
-				const url = `https://api.brightsky.dev/weather?dwd_station_id=${encodeURIComponent(station.id)}`
-					+ `&date=\${start}&last_date=\${end}&tz=${encodeURIComponent(timeZone)}`;
-				let response;
-				try {
-					response = await fetch(url, { signal: AbortSignal.timeout(8000) });
-				} catch (e) {
-					return null;
-				}
-				if (!response.ok) return null;
-				const body = await response.json();
-				const sources = body.sources || [];
-				const now = Date.now();
-
-				const hours = {};  // "YYYY-MM-DDTHH" (Ende der Stunde, Ortszeit) -> mm, wie bisher
-				const daily = {};  // "YYYY-MM-DD" -> Summe in mm
-				const byDay = {};  // "YYYY-MM-DD" -> [{ t, mm, key }], sortiert
-
-				for (const row of body.weather || []) {
-					if (row.precipitation == null || Number.isNaN(Number(row.precipitation))) continue;
-
-					// Fix 5: Quelle pro Feld prüfen, damit Werte aus Nachbarstationen auffallen
-					const src = fieldSource(row, sources, 'precipitation');
-					if (!src || !MEASURED_TYPES.has(src.observation_type)) continue;
-					if (PRECIP_STRICT_STATION && src.dwd_station_id && src.dwd_station_id !== station.id) continue;
-
-					// Fix 6: Der Zeitstempel enthält den Offset (z. B. +01:00). Damit stimmt jede Stunde, auch vor und nach der Zeitumstellung.
-					const t = Date.parse(row.timestamp);
-					if (Number.isNaN(t) || t > now) continue;
-					const key = row.timestamp.slice(0, 13);
-					const mm = Number(row.precipitation);
-
-					hours[key] = mm;
-					// Fix 7: Den Wert dem Tag zuordnen, zu dem die gemessene Stunde gehört
-					const day = hourEndKeyToDay(key);
-					daily[day] = (daily[day] || 0) + mm;
-					(byDay[day] = byDay[day] || []).push({ t, mm, key });
-				}
-
-				for (const day of Object.keys(byDay)) byDay[day].sort((a, b) => a.t - b.t);
-				for (const day of Object.keys(daily)) daily[day] = Math.round(daily[day] * 10) / 10;
-
-				return { station, hours, daily, byDay, timeZone, loadedAt: now };
+			if (!response.ok) return null;
+			const body = await response.json();
+			const sources = body.sources || [];
+			const now = Date.now();
+			const hours = {};
+			const daily = {};
+			const byDay = {};
+			for (const row of body.weather || []) {
+				if (row.precipitation == null || Number.isNaN(Number(row.precipitation))) continue;
+				const src = fieldSource(row, sources, 'precipitation');
+				if (!src || !MEASURED_TYPES.has(src.observation_type)) continue;
+				if (PRECIP_STRICT_STATION && src.dwd_station_id && src.dwd_station_id !== station.id) continue;
+				const t = Date.parse(row.timestamp);
+				if (Number.isNaN(t) || t > now) continue;
+				const key = row.timestamp.slice(0, 13);
+				const mm = Number(row.precipitation);
+				hours[key] = mm;
+				const day = hourEndKeyToDay(key);
+				daily[day] = (daily[day] || 0) + mm;
+				(byDay[day] = byDay[day] || []).push({ t, mm, key });
 			}
-
+			for (const day of Object.keys(byDay)) byDay[day].sort((a, b) => a.t - b.t);
+			for (const day of Object.keys(daily)) daily[day] = Math.round(daily[day] * 10) / 10;
+			return { station, hours, daily, byDay, timeZone, loadedAt: now };
+		}
+		
         function applyStationPrecipitation(data, precip) {
             if (!precip || !data.hourly?.time || !data.hourly.precipitation) return;
             const offset = data.utc_offset_seconds || 0;
@@ -3000,38 +3043,47 @@
             return srcModelName(o.id);
         }
 
-        // Quellenliste im Info-Bereich: zeigt nur, was fuer die aktuelle Anzeige wirklich benutzt wurde
-        function renderSources(data) {
-            const box = document.getElementById('sources-dynamic');
-            if (!box || !data?.src) return;
-            const s = data.src, model = data.loadedModel, cur = s.cur || {};
-            const hourly = [srcModelName(model) + (s.hourlyFill ? ' → ECMWF IFS' : '')];
-            if (s.mosmix) hourly.push('Temp/Wind: ' + srcText({ k: 'mosmix', ...stationRef(s.mosmix) }));
-            const ow = s.owm;
-            const nowC = data.current || {}, nowCode = nowC.weather_code ?? null;
-            const nowTemp = nowC.temperature_2m != null ? Math.round(nowC.temperature_2m * 10) / 10 : null;
-            const nowWind = nowC.wind_speed_10m != null ? Math.round(nowC.wind_speed_10m * 10) / 10 : null;
-            if (ow) { hourly.length = 0; hourly.push(`OpenWeather ${ow.api} → ${srcModelName(model)}`); }
-            let daily = model === 'icon_d2'
-                ? `${srcModelName(model)} (${t('src_d12')}) · ${s.daily3 === 'ecmwf_ifs' ? 'ECMWF IFS' : 'Open-Meteo Best Match'} (${t('src_d3')})`
-                : srcModelName(model);
-            if (ow) daily = `OpenWeather ${ow.api} → ${srcModelName(model)}`;
-            const rain = [];
-            if (data.precipStation?.name) rain.push(`${t('src_past')}: DWD ${data.precipStation.name} · ${Math.round(data.precipStation.distanceKm)} km`);
-            rain.push(`${t('src_fc')}: ${s.rainFc === 'mosmix' ? 'DWD MOSMIX' : s.rainFc === 'owm' ? 'OpenWeather' : srcModelName(model)}`);
-            const rows = [
-                [t('src_code'), `${s.owm ? 'OpenWeather ' + s.owm.api : srcModelName(model)}${nowCode != null ? ` (WMO ${nowCode}${s.owm && s.owmId != null ? ', OpenWeather ' + s.owmId : ''})` : ''}`],
-                [t('src_temp'), srcText(cur.temp) + (nowTemp != null ? ` (${nowTemp} °C)` : '')],
-                [t('src_wind'), srcText(cur.wind) + (nowWind != null ? ` (${nowWind} km/h)` : '')],
-                [t('src_hourly'), hourly.join(' · ')], [t('src_daily'), daily],
-                [t('src_ens'), s.ens ? 'ECMWF ENS (ifs025)' : t('src_none')], [t('src_rain'), rain.join(' · ')]
-            ];
-            if (data.station?.name) rows.push([t('src_press'), `DWD ${data.station.name}${data.station.distanceKm != null ? ' · ' + Math.round(data.station.distanceKm) + ' km' : ''}`]);
-            rows.push([t('src_radar'), inDwdCoverage() ? 'DWD' : 'RainViewer']);
-            rows.push([t('src_moon'), (moonApi ? 'Open-Meteo, ' : '') + t('src_calc')]);
-            box.innerHTML = rows.map(([k, v]) => `<p><span style="color:var(--text-muted);font-size:12px;">${srcEsc(k)}</span><br><strong>${srcEsc(v)}</strong></p>`).join('');
-        }
+		// Quellenliste im Info-Bereich: zeigt nur, was fuer die aktuelle Anzeige wirklich benutzt wurde
+		function renderSources(data) {
+			const box = document.getElementById('sources-dynamic');
+			if (!box || !data?.src) return;
+			const s = data.src, model = data.loadedModel, cur = s.cur || {};
+			const hourly = [srcModelName(model) + (s.hourlyFill ? ' → ECMWF IFS' : '')];
+			if (s.mosmix) hourly.push('Temp/Wind: ' + srcText({ k: 'mosmix', ...stationRef(s.mosmix) }));
+			const ow = s.owm;
+			const nowC = data.current || {}, nowCode = nowC.weather_code ?? null;
+			const nowTemp = nowC.temperature_2m != null ? Math.round(nowC.temperature_2m * 10) / 10 : null;
+			const nowWind = nowC.wind_speed_10m != null ? Math.round(nowC.wind_speed_10m * 10) / 10 : null;
+			if (ow) { hourly.length = 0; hourly.push(`OpenWeather $${ow.api} → $${srcModelName(model)}`); }
+			let daily = model === 'icon_d2'
+				? `$${srcModelName(model)} ($${t('src_d12')}) · \${s.daily3 === 'ecmwf_ifs' ? 'ECMWF IFS' : 'Open-Meteo Best Match'} (\${t('src_d3')})`
+				: srcModelName(model);
+			if (ow) daily = `OpenWeather $${ow.api} → $${srcModelName(model)}`;
 
+			// Regen: gemessen (DWD-Station oder Hinweis) und Vorhersage getrennt
+			const ps = data.precipStation;
+			const rainMeas = ps?.name
+				? `DWD $${ps.name}$${ps.distanceKm != null ? ' · ' + Math.round(ps.distanceKm) + ' km' : ''}`
+				: t({ outside: 'src_rain_outside', error: 'src_rain_err' }[s.rainObs] || 'src_rain_none');
+			const rainFc = s.rainFc === 'mosmix' ? 'DWD MOSMIX' : s.rainFc === 'owm' ? 'OpenWeather' : srcModelName(model);
+
+			const rows = [
+				[t('src_code'), `$${ow ? 'OpenWeather ' + ow.api : srcModelName(model)}$${nowCode != null ? ` (WMO $${nowCode}$${ow && s.owmId != null ? ', OpenWeather ' + s.owmId : ''})` : ''}`],
+				[t('src_temp'), srcText(cur.temp) + (nowTemp != null ? ` (${nowTemp} °C)` : '')],
+				[t('src_wind'), srcText(cur.wind) + (nowWind != null ? ` (${nowWind} km/h)` : '')],
+				[t('src_hourly'), hourly.join(' · ')],
+				[t('src_daily'), daily],
+				[t('src_ens'), s.ens ? 'ECMWF ENS (ifs025)' : t('src_none')],
+				[t('src_rain_meas'), rainMeas],
+				[t('src_rain_fc'), rainFc]
+			];
+			if (data.station?.name) rows.push([t('src_press'), `DWD $${data.station.name}$${data.station.distanceKm != null ? ' · ' + Math.round(data.station.distanceKm) + ' km' : ''}`]);
+			rows.push([t('src_radar'), inDwdCoverage() ? 'DWD' : 'RainView```javascript
+		er']);
+			rows.push([t('src_moon'), (moonApi ? 'Open-Meteo, ' : '') + t('src_calc')]);
+			box.innerHTML = rows.map(([k, v]) => `<p><span style="color:var(--text-muted);font-size:12px;">$${srcEsc(k)}</span><br><strong>$${srcEsc(v)}</strong></p>`).join('');
+		}
+		
         function sourceLabel(data) {
             const cur = data?.src?.cur;
             if (!cur) return data?.tempSource ? `Wetterdaten: ${data.tempSource}` : '';
@@ -3065,17 +3117,24 @@
                     console.error('Niederschlagsstation nicht geladen', e);
                 }
                 data.src = data.src || {};
-                data.src.cur = { temp: { k: 'model', id: data.loadedModel }, wind: { k: 'model', id: data.loadedModel } };
-                if (isCompositeModel()) {
-                    data.tempSource = data.loadedModel === 'ecmwf_ifs' ? 'ECMWF' : (data.loadedModel === 'icon_d2' ? 'ICON-D2' : 'Open-Meteo');
-                    try {
-                        if (weatherModel() === 'gated') await applyMixModel(data, lat, lon);
-                        else if (weatherModel() === 'owm') await applyOpenWeatherModel(data, lat, lon);
-                        else await applyLegacyModel(data, lat, lon);
-                    } catch (e) {
-                        console.error('Modell nicht geladen', e);
-                    }
-                }
+				const inGermany = lat >= 47 && lat <= 55.2 && lon >= 5.5 && lon <= 15.5;
+				data.src.rainObs = inGermany ? 'none' : 'outside';
+				if (inGermany) {
+					try {
+						const precipStation = await findPrecipStation(lat, lon);
+						if (precipStation) {
+							const precip = await fetchStationPrecip(precipStation);
+							if (precip && Object.keys(precip.hours).length) {
+								applyStationPrecipitation(data, precip);
+								lastPrecipObs = { lat, lon, station: precipStation, precip };
+								data.src.rainObs = 'ok';
+							}
+						}
+					} catch (e) {
+						console.error('Niederschlagsstation nicht geladen', e);
+						data.src.rainObs = 'error';
+					}
+				}
                 
                 const timestamp = new Date().getTime();
                 localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
