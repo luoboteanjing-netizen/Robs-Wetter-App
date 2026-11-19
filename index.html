@@ -1604,7 +1604,6 @@
                     }));
             }
             return aggregateEntries(inside, metric, range).filter(p => Number.isFinite(p.y));
-            return aggregateEntries(inside, metric, range);
         }
 
         // Runde Skalenwerte (1, 2, 5, 10 ...), damit jede Beschriftung sauber ist
@@ -1706,26 +1705,26 @@
 
             const gridY = yTicks.map(value => {
                 const y = py(value).toFixed(1);
-                return `<line x1="\${pad.l}" y1="\${y}" x2="\${w - pad.r}" y2="\${y}" stroke="#8e8e93" stroke-width="0.6"/>`;
+                return `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="#8e8e93" stroke-width="0.6"/>`;
             }).join('');
             const gridX = (gridTicks || xTicks).map(tick => {
                 const x = px(tick.x).toFixed(1);
-                return `<line x1="\${x}" y1="\${pad.t}" x2="\${x}" y2="\${h - pad.b}" stroke="#8e8e93" stroke-width="0.6"/>`;
+                return `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${h - pad.b}" stroke="#8e8e93" stroke-width="0.6"/>`;
             }).join('');
-            const line = points.map((point, i) => `$${i ? 'L' : 'M'}$${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
-            const forecastLine = forecast.map((point, i) => `$${i ? 'L' : 'M'}$${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
-            const dots = points.map(point => `<circle cx="\${px(point.x).toFixed(1)}" cy="\${py(point.y).toFixed(1)}" r="3.2" fill="var(--accent-red)"/>`).join('');
-            const yLabels = yTicks.map(value => `<text x="2" y="\${(py(value) + 3).toFixed(1)}" fill="var(--text-muted)" font-size="10">\${formatAxis(value)}</text>`).join('');
-            const xLabels = xTicks.map(tick => `<text x="\${px(tick.x).toFixed(1)}" y="\${h - 6}" text-anchor="\${tick.anchor || 'middle'}" fill="var(--text-muted)" font-size="10">\${tick.label}</text>`).join('');
+            const line = points.map((point, i) => `${i ? 'L' : 'M'}${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
+            const forecastLine = forecast.map((point, i) => `${i ? 'L' : 'M'}${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
+            const dots = points.map(point => `<circle cx="${px(point.x).toFixed(1)}" cy="${py(point.y).toFixed(1)}" r="3.2" fill="var(--accent-red)"/>`).join('');
+            const yLabels = yTicks.map(value => `<text x="2" y="${(py(value) + 3).toFixed(1)}" fill="var(--text-muted)" font-size="10">${formatAxis(value)}</text>`).join('');
+            const xLabels = xTicks.map(tick => `<text x="${px(tick.x).toFixed(1)}" y="${h - 6}" text-anchor="${tick.anchor || 'middle'}" fill="var(--text-muted)" font-size="10">${tick.label}</text>`).join('');
 
             // Legende: rote Linie = gemessen/Modell, gestrichelt = Vorhersage
             let legend = '';
             if (solidLabel) {
-                legend = `<line x1="\${pad.l + 4}" y1="9" x2="\${pad.l + 18}" y2="9" stroke="var(--accent-red)" stroke-width="2.4"/>`
-                    + `<text x="\${pad.l + 22}" y="12" fill="var(--text-muted)" font-size="10">\${solidLabel}</text>`;
+                legend = `<line x1="${pad.l + 4}" y1="9" x2="${pad.l + 18}" y2="9" stroke="var(--accent-red)" stroke-width="2.4"/>`
+                    + `<text x="${pad.l + 22}" y="12" fill="var(--text-muted)" font-size="10">${solidLabel}</text>`;
                 if (forecast.length) {
-                    legend += `<line x1="\${pad.l + 84}" y1="9" x2="\${pad.l + 98}" y2="9" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4"/>`
-                        + `<text x="\${pad.l + 102}" y="12" fill="var(--text-muted)" font-size="10">\${t('log_legend_fc')}</text>`;
+                    legend += `<line x1="${pad.l + 84}" y1="9" x2="${pad.l + 98}" y2="9" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4"/>`
+                        + `<text x="${pad.l + 102}" y="12" fill="var(--text-muted)" font-size="10">${t('log_legend_fc')}</text>`;
                 }
             }
 
@@ -1736,10 +1735,10 @@
                 ? `<path d="${line}" fill="none" stroke="var(--accent-red)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`
                 : '';
 
-            host.innerHTML = `<svg viewBox="0 0 $${w} $${h}" width="100%" height="${Math.round(210 * h / 200)}">`
+            host.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${Math.round(210 * h / 200)}">`
                 + gridY
                 + gridX
-                + `<text x="\${w - 8}" y="12" text-anchor="end" fill="var(--text-muted)" font-size="10">\${unit}</text>`
+                + `<text x="${w - 8}" y="12" text-anchor="end" fill="var(--text-muted)" font-size="10">${unit}</text>`
                 + yLabels
                 + legend
                 + forecastPath
@@ -1860,9 +1859,9 @@
 		const LOG_CACHE_TTL_MS = 10 * 60 * 1000;
 
 		async function loadDayModelHours(lat, lon, day) {
-			const key = `$${Number(lat).toFixed(3)},$${Number(lon).toFixed(3)},${day}`;
+			const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)},${day}`;
 			if (dayModelCache?.key === key && (!dayModelCache.today || Date.now() - dayModelCache.loadedAt < LOG_CACHE_TTL_MS)) return dayModelCache;
-			const query = `latitude=$${lat}&longitude=$${lon}&hourly=temperature_2m,wind_speed_10m,pressure_msl,precipitation,sunshine_duration&timezone=auto&start_date=\${day}&end_date=\${day}`;
+			const query = `latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,pressure_msl,precipitation,sunshine_duration&timezone=auto&start_date=${day}&end_date=${day}`;
 			let data = null;
 			try {
 				const res = await fetch(`https://api.open-meteo.com/v1/forecast?${query}`);
@@ -1958,9 +1957,9 @@
 
 		async function loadTodayForecast(lat, lon, day) {
 			const model = weatherModel() === 'best' ? '' : '&models=icon_d2';
-			const key = `$${Number(lat).toFixed(3)},$${Number(lon).toFixed(3)},$${day},$${model},v2`;
+			const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)},${day},${model},v2`;
 			if (todayForecastCache?.key === key && Date.now() - todayForecastCache.loadedAt < LOG_CACHE_TTL_MS) return todayForecastCache.rows;
-			const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=$${lat}&longitude=$${lon}&hourly=temperature_2m,precipitation&timezone=auto&start_date=\${day}&end_date=\${shiftDayKey(day, 1)}${model}`, { cache: 'no-store' });
+			const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation&timezone=auto&start_date=${day}&end_date=${shiftDayKey(day, 1)}${model}`, { cache: 'no-store' });
 			if (!res.ok) return [];
 			const data = await res.json();
 			const offset = data.utc_offset_seconds || 0;
@@ -2014,7 +2013,7 @@
 
 		function rainSourceText(station, measured, isToday) {
 			const dist = station?.distanceKm != null ? ` · ${Math.round(station.distanceKm)} km` : '';
-			const parts = [`Messstation: $${station?.name || station?.id || 'DWD'}$${dist}`];
+			const parts = [`Messstation: ${station?.name || station?.id || 'DWD'}${dist}`];
 			if (measured.missing > 0) parts.push(t('log_rain_missing').replace('{n}', measured.missing));
 			if (isToday && Date.now() - measured.lastT > 90 * 60000) {
 				parts.push(t('log_rain_last').replace('{time}', formatTime(new Date(measured.lastT))));
@@ -2984,7 +2983,7 @@
 			const start = shiftDayKey(today, -62);
 			const end = shiftDayKey(today, 2);
 			const url = `https://api.brightsky.dev/weather?dwd_station_id=${encodeURIComponent(station.id)}`
-				+ `&date=\${start}&last_date=\${end}&tz=${encodeURIComponent(timeZone)}`;
+				+ `&date=${start}&last_date=${end}&tz=${encodeURIComponent(timeZone)}`;
 			let response;
 			try {
 				response = await fetch(url, { signal: AbortSignal.timeout(8000) });
@@ -3085,21 +3084,21 @@
 			const nowC = data.current || {}, nowCode = nowC.weather_code ?? null;
 			const nowTemp = nowC.temperature_2m != null ? Math.round(nowC.temperature_2m * 10) / 10 : null;
 			const nowWind = nowC.wind_speed_10m != null ? Math.round(nowC.wind_speed_10m * 10) / 10 : null;
-			if (ow) { hourly.length = 0; hourly.push(`OpenWeather $${ow.api} → $${srcModelName(model)}`); }
+			if (ow) { hourly.length = 0; hourly.push(`OpenWeather ${ow.api} → ${srcModelName(model)}`); }
 			let daily = model === 'icon_d2'
-				? `$${srcModelName(model)} ($${t('src_d12')}) · \${s.daily3 === 'ecmwf_ifs' ? 'ECMWF IFS' : 'Open-Meteo Best Match'} (\${t('src_d3')})`
+				? `${srcModelName(model)} (${t('src_d12')}) · ${s.daily3 === 'ecmwf_ifs' ? 'ECMWF IFS' : 'Open-Meteo Best Match'} (${t('src_d3')})`
 				: srcModelName(model);
-			if (ow) daily = `OpenWeather $${ow.api} → $${srcModelName(model)}`;
+			if (ow) daily = `OpenWeather ${ow.api} → ${srcModelName(model)}`;
 
 			// Regen: gemessen (DWD-Station oder Hinweis) und Vorhersage getrennt
 			const ps = data.precipStation;
 			const rainMeas = ps?.name
-				? `DWD $${ps.name}$${ps.distanceKm != null ? ' · ' + Math.round(ps.distanceKm) + ' km' : ''}`
+				? `DWD ${ps.name}${ps.distanceKm != null ? ' · ' + Math.round(ps.distanceKm) + ' km' : ''}`
 				: t({ outside: 'src_rain_outside', error: 'src_rain_err' }[s.rainObs] || 'src_rain_none');
 			const rainFc = s.rainFc === 'mosmix' ? 'DWD MOSMIX' : s.rainFc === 'owm' ? 'OpenWeather' : srcModelName(model);
 
 			const rows = [
-				[t('src_code'), `$${ow ? 'OpenWeather ' + ow.api : srcModelName(model)}$${nowCode != null ? ` (WMO $${nowCode}$${ow && s.owmId != null ? ', OpenWeather ' + s.owmId : ''})` : ''}`],
+				[t('src_code'), `${ow ? 'OpenWeather ' + ow.api : srcModelName(model)}${nowCode != null ? ` (WMO ${nowCode}${ow && s.owmId != null ? ', OpenWeather ' + s.owmId : ''})` : ''}`],
 				[t('src_temp'), srcText(cur.temp) + (nowTemp != null ? ` (${nowTemp} °C)` : '')],
 				[t('src_wind'), srcText(cur.wind) + (nowWind != null ? ` (${nowWind} km/h)` : '')],
 				[t('src_hourly'), hourly.join(' · ')],
@@ -3108,10 +3107,10 @@
 				[t('src_rain_meas'), rainMeas],
 				[t('src_rain_fc'), rainFc]
 			];
-			if (data.station?.name) rows.push([t('src_press'), `DWD $${data.station.name}$${data.station.distanceKm != null ? ' · ' + Math.round(data.station.distanceKm) + ' km' : ''}`]);
+			if (data.station?.name) rows.push([t('src_press'), `DWD ${data.station.name}${data.station.distanceKm != null ? ' · ' + Math.round(data.station.distanceKm) + ' km' : ''}`]);
 			rows.push([t('src_radar'), inDwdCoverage() ? 'DWD' : 'RainViewer']);
 			rows.push([t('src_moon'), (moonApi ? 'Open-Meteo, ' : '') + t('src_calc')]);
-			box.innerHTML = rows.map(([k, v]) => `<p><span style="color:var(--text-muted);font-size:12px;">$${srcEsc(k)}</span><br><strong>$${srcEsc(v)}</strong></p>`).join('');
+			box.innerHTML = rows.map(([k, v]) => `<p><span style="color:var(--text-muted);font-size:12px;">${srcEsc(k)}</span><br><strong>${srcEsc(v)}</strong></p>`).join('');
 		}
 		
         function sourceLabel(data) {
