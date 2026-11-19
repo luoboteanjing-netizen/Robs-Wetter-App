@@ -3164,6 +3164,17 @@
 						data.src.rainObs = 'error';
 					}
 				}
+                if (weatherModel() === 'owm') {
+                    try { await applyOpenWeatherModel(data, lat, lon); }
+                    catch (e) { console.error('OpenWeather nicht geladen', e); }
+                } else if (weatherModel() === 'gated') {
+                    try { await applyMixModel(data, lat, lon); }
+                    catch (e) { console.error('Modell 3 nicht geladen', e); }
+                } else if (weatherModel() === 'mix') {
+                    try { await applyLegacyModel(data, lat, lon); }
+                    catch (e) { console.error('Modell 2 nicht geladen', e); }
+                }
+                renderSources(data);
                 
                 const timestamp = new Date().getTime();
                 localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
