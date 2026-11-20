@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.43">
+    <link rel="manifest" href="manifest.json?v=2.44">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
@@ -329,11 +329,25 @@
         .hourly-wind .wind-arrow { display: inline-block; font-size: 11px; line-height: 1; }
 
         .day-list { display: flex; flex-direction: column; }
-        .day-row { display: flex; align-items: center; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid var(--border-color); }
+        .day-row {
+            display: grid; grid-template-columns: 68px 56px 36px minmax(46px, 1fr) 38px;
+            align-items: center; gap: 4px; padding: 11px 0; border-bottom: 1px solid var(--border-color);
+        }
         .day-row:last-child { border-bottom: none; }
-        .day-name { width: 80px; }
-        .day-name strong { display: block; font-size: 16px; }
+        .day-name { min-width: 0; }
+        .day-name strong { display: block; font-size: 16px; line-height: 1.15; }
         .day-name span { font-size: 12px; color: var(--text-muted); }
+        .day-sun { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-muted); line-height: 1.2; font-variant-numeric: tabular-nums; }
+        .day-sun .up { color: #e6b325; }
+        .day-sun .down { color: #7eb6f0; }
+        .day-row .day-icon { width: 36px; height: 36px; flex-basis: 36px; }
+        .day-rain-col { justify-self: end; text-align: right; min-width: 46px; }
+        .day-rain-col .pct, .day-rain-col .mm { display: block; color: var(--accent-blue); line-height: 1.2; }
+        .day-rain-col .pct { font-size: 15px; font-weight: 650; }
+        .day-rain-col .mm { font-size: 12px; font-weight: 500; }
+        .day-temps { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.12; }
+        .day-temps .hi { font-size: 20px; font-weight: 650; }
+        .day-temps .lo { font-size: 16px; color: var(--text-muted); font-weight: 500; }
         
         .day-card {
             flex: 1; background: var(--bar-bg); border-radius: 16px; padding: 15px 8px;
@@ -795,7 +809,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.43</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.44</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -957,7 +971,7 @@
             }
         };
 
-        const APP_VERSION = '2.43';
+        const APP_VERSION = '2.44';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -2694,7 +2708,7 @@
 
         function forecastUrl(lat, lon, models) {
             const modelParam = models ? `&models=${models}` : '';
-            return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,sunshine_duration&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&past_days=1&forecast_days=16${modelParam}`;
+            return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,sunshine_duration&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&past_days=1&forecast_days=16${modelParam}`;
         }
 
         function forecastUsable(data) {
@@ -3759,6 +3773,20 @@
             cityUtcOffset = Number.isFinite(utcOffsetSeconds) ? utcOffsetSeconds : null;
             renderCityTime();
             if (!cityClockTimer) cityClockTimer = setInterval(renderCityTime, 1000);
+        }
+
+        function dayPrecipMm(hourly, daily, index) {
+            const fromDaily = daily?.precipitation_sum?.[index];
+            if (fromDaily != null && !Number.isNaN(Number(fromDaily))) return Number(fromDaily);
+            const day = daily?.time?.[index];
+            if (!day || !hourly?.time) return 0;
+            let sum = 0;
+            for (let i = 0; i < hourly.time.length; i++) {
+                if (!String(hourly.time[i]).startsWith(day)) continue;
+                const value = hourly.precipitation?.[i];
+                if (value != null && !Number.isNaN(Number(value))) sum += Number(value);
+            }
+            return sum;
         }
 
         function clockFromIso(iso) {
@@ -4909,7 +4937,10 @@
                 const maxT = Math.round(daily.temperature_2m_max[i]);
                 const minT = Math.round(daily.temperature_2m_min[i]);
                 const rain = daily.precipitation_probability_max[i];
+                const mm = dayPrecipMm(hourly, daily, i);
                 const code = dayIconCode(hourly, daily, i, current.time);
+                const rise = clockFromIso(daily.sunrise?.[i]);
+                const set = clockFromIso(daily.sunset?.[i]);
 
                 weekContainer.innerHTML += `
                     <div class="day-row" data-index="${i}" style="cursor:pointer;">
@@ -4917,12 +4948,18 @@
                             <strong>${dayLabel}</strong>
                             <span>${dateLabel}</span>
                         </div>
+                        <div class="day-sun">
+                            <span class="up">↑ ${rise}</span>
+                            <span class="down">↓ ${set}</span>
+                        </div>
                         <div class="day-icon">${getWeatherIconHtml(code, 1)}</div>
-                        <div class="day-rain">${rain > 0 ? rain + ' %' : ''}</div>
-                        <div class="day-range">
-                            <span class="low">${minT}°</span>
-                            ${dayTrendSvg(hourly, daily.time[i])}
-                            <span>${maxT}°</span>
+                        <div class="day-rain-col">
+                            <span class="pct">${rain > 0 ? rain + ' %' : ''}</span>
+                            <span class="mm">${mm >= 0.1 ? formatMm(mm) : ''}</span>
+                        </div>
+                        <div class="day-temps">
+                            <span class="hi">${maxT}°</span>
+                            <span class="lo">${minT}°</span>
                         </div>
                     </div>
                 `;
