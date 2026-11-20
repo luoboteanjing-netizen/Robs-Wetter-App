@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.44">
+    <link rel="manifest" href="manifest.json?v=2.45">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
@@ -31,6 +31,9 @@
             --night-highlight: rgba(255, 255, 255, 0.08);
             
             --font-family: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
+            /* Seitenrand der Karten und Eckenradius. Kleinerer Rand = breitere Karten. */
+            --page-inset: 12px;
+            --card-radius: 16px;
         }
 
         body.light-mode {
@@ -214,7 +217,7 @@
 
         .forecast-box {
             background-color: var(--card-bg); border: 1px solid var(--border-color);
-            border-radius: 24px; margin: 0 20px 15px 20px; padding: 16px 18px 14px;
+            border-radius: var(--card-radius); margin: 0 var(--page-inset) 15px var(--page-inset); padding: 16px 18px 14px;
         }
         .forecast-box .graph-header { margin-bottom: 10px; }
         .forecast-lines { display: flex; flex-direction: column; gap: 6px; }
@@ -247,7 +250,7 @@
 
         .card {
             background-color: var(--card-bg); border: 1px solid var(--border-color);
-            border-radius: 24px; margin: 0 20px 20px 20px; padding: 20px;
+            border-radius: var(--card-radius); margin: 0 var(--page-inset) 20px var(--page-inset); padding: 20px;
             display: none; animation: fadeIn 0.3s ease;
         }
         .card.active { display: block; }
@@ -518,9 +521,9 @@
         .place-del { display: flex; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 8px; }
         .place-del:hover, .place-del:active { color: var(--accent-red); }
         .place-empty { padding: 14px 12px; font-size: 13px; color: var(--text-muted); line-height: 1.4; }
-        .home-log { margin: 4px 0 8px; }
+        .home-log { margin: 4px var(--page-inset) 8px var(--page-inset); }
         .home-log .graph-header { margin-bottom: 10px; }
-        .log-chart { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 8px; min-height: 200px; cursor: crosshair; touch-action: none; overflow: hidden; text-align: left; }
+        .log-chart { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--card-radius); padding: 8px; min-height: 200px; cursor: crosshair; touch-action: none; overflow: hidden; text-align: left; }
         .log-chart svg { display: block; width: 100%; margin: 0; }
         .log-probe { margin: 8px 0 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-main); }
         .log-probe[hidden] { display: none; }
@@ -809,7 +812,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.44</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.45</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -971,7 +974,7 @@
             }
         };
 
-        const APP_VERSION = '2.44';
+        const APP_VERSION = '2.45';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
