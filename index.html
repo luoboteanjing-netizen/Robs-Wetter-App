@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.41">
+    <link rel="manifest" href="manifest.json?v=2.42">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
@@ -774,7 +774,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.41</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.42</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -936,7 +936,7 @@
             }
         };
 
-        const APP_VERSION = '2.41';
+        const APP_VERSION = '2.42';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1622,13 +1622,18 @@
             return ticks;
         }
 
-        function drawLogChart(points, unit, range, bounds, metric = '', forecastPoints = null, solidLabel = null) {
+        function drawLogChart(points, unit, range, bounds, metric = '', forecastPoints = null, solidLabel = null, opts = {}) {
             const host = document.getElementById('log-chart');
             // Nur gueltige Punkte zeichnen: NaN/Infinity machen sonst die ganze Achse kaputt
             const valid = (p) => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y));
             points = (points || []).filter(valid).map(p => ({ ...p, y: Number(p.y) }));
             const forecast = (forecastPoints || []).filter(valid).map(p => ({ ...p, y: Number(p.y) }));
-            if (!points.length && !forecast.length) {
+            const bars = (opts.bars || []).filter(valid).map(p => ({ ...p, y: Number(p.y) }));
+            const hideLine = !!opts.hideLine;
+            const lineColor = opts.lineColor || 'var(--accent-red)';
+            const barColor = opts.barColor || lineColor;
+            const forecastColor = opts.forecastColor || lineColor;
+            if (!points.length && !forecast.length && !bars.length) {
                 host.innerHTML = `<div class="log-empty">${t('log_empty')}</div>`;
                 return;
             }
@@ -1638,13 +1643,25 @@
             // Mit Legende oben etwas mehr Platz
             const pad = { l: 31, r: 10, t: solidLabel ? 22 : 14, b: 28 };
             host.classList.remove('is-wide');
-            const ys = points.map(point => point.y).concat(forecast.map(point => point.y));
+            const ys = points.map(point => point.y).concat(forecast.map(point => point.y), bars.map(bar => bar.y));
             let yTicks, minY, maxY;
-            if (metric === 'rain') {
-                // Achse beginnt bei 0, mindestens bis 20 mm, darueber in 10er-Schritten aufgerundet
-                const top = Math.max(20, Math.ceil(Math.max(...ys) / 10) * 10);
-                const steps = [5, 10, 20, 25, 30, 40, 50, 100, 200, 250, 300, 400, 500, 1000, 2000, 5000];
-                const step = steps.find(st => top % st === 0 && top / st <= 7)
+            if (opts.zeroBase) {
+                const peak = Math.max(0, ...ys);
+                yTicks = niceTicks(0, peak || 1);
+                if (yTicks[0] > 0) yTicks.unshift(0);
+                minY = 0;
+                maxY = Math.max(yTicks[yTicks.length - 1], peak || 1);
+            } else if (metric === 'rain') {
+                // Mit Balken an die Werte anpassen, sonst mindestens bis 20 mm
+                const peak = Math.max(0, ...ys);
+                const top = bars.length
+                    ? (peak <= 1 ? 1 : peak <= 5 ? 5 : peak <= 10 ? 10 : Math.ceil(peak / 10) * 10)
+                    : Math.max(20, Math.ceil(peak / 10) * 10);
+                const steps = top <= 1 ? [0.2, 0.25, 0.5]
+                    : top <= 5 ? [1, 0.5]
+                    : top <= 10 ? [2, 1]
+                    : [5, 10, 20, 25, 30, 40, 50, 100, 200, 250, 300, 400, 500, 1000, 2000, 5000];
+                const step = steps.find(st => Math.abs(top / st - Math.round(top / st)) < 1e-6 && top / st <= 7)
                     || steps.find(st => top / st <= 6)
                     || top / 4;
                 yTicks = [];
@@ -1666,10 +1683,12 @@
                 maxY = yTicks[yTicks.length - 1];
             }
 
-            // X-Achse: bei Tag/Woche/Monat der komplette Zeitraum, sonst von Punkt zu Punkt
-            const fullRange = (range === 'day' || range === 'week' || range === 'month') && bounds;
-            const minX = fullRange ? bounds.from.getTime() : (points[0] || forecast[0]).x;
-            const maxX = fullRange ? bounds.to.getTime() : (points[points.length - 1] || forecast[forecast.length - 1]).x;
+            // X-Achse: bei Tag/Monat/Jahr der komplette Zeitraum, sonst von Punkt zu Punkt
+            const fullRange = (range === 'day' || range === 'month' || range === 'year') && bounds;
+            const anchorPoint = points[0] || forecast[0] || bars[0];
+            const endPoint = points[points.length - 1] || forecast[forecast.length - 1] || bars[bars.length - 1];
+            const minX = fullRange ? bounds.from.getTime() : anchorPoint.x;
+            const maxX = fullRange ? bounds.to.getTime() : endPoint.x;
             const spanX = Math.max(1, maxX - minX);
             const px = (value) => pad.l + ((value - minX) / spanX) * (w - pad.l - pad.r);
             const py = (value) => pad.t + (1 - (value - minY) / (maxY - minY)) * (h - pad.t - pad.b);
@@ -1686,18 +1705,18 @@
                     label: String(hour % 24).padStart(2, '0') + ':00',
                     anchor: hour === 24 ? 'end' : 'middle'
                 }));
-            } else if (range === 'week' && bounds) {
-                xTicks = Array.from({ length: 7 }, (_, i) => {
-                    const day = addDays(bounds.from, i);
-                    const noon = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12);
-                    return { x: noon.getTime(), label: t('days')[day.getDay()] };
-                });
             } else if (range === 'month' && bounds) {
                 const y = bounds.from.getFullYear(), m = bounds.from.getMonth();
                 const last = new Date(y, m + 1, 0).getDate();
                 const days = [1, 5, 10, 15, 20, 25];
                 if (last - 25 >= 3) days.push(last);
                 xTicks = days.map(d => ({ x: new Date(y, m, d, 12).getTime(), label: d + '.' }));
+            } else if (range === 'year' && bounds) {
+                const y = bounds.from.getFullYear();
+                xTicks = Array.from({ length: 12 }, (_, m) => ({
+                    x: new Date(y, m, 15, 12).getTime(),
+                    label: new Date(y, m, 1).toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : currentLang, { month: 'narrow' })
+                }));
             } else {
                 const step = Math.max(1, Math.ceil(points.length / 4));
                 xTicks = points
@@ -1713,28 +1732,37 @@
                 const x = px(tick.x).toFixed(1);
                 return `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${h - pad.b}" stroke="#8e8e93" stroke-width="0.6"/>`;
             }).join('');
-            const line = points.map((point, i) => `${i ? 'L' : 'M'}${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
+            const line = hideLine ? '' : points.map((point, i) => `${i ? 'L' : 'M'}${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
             const forecastLine = forecast.map((point, i) => `${i ? 'L' : 'M'}${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(' ');
-            const dots = points.map(point => `<circle cx="${px(point.x).toFixed(1)}" cy="${py(point.y).toFixed(1)}" r="3.2" fill="var(--accent-red)"/>`).join('');
+            const barMs = range === 'day' ? 0.55 * 3600000 : range === 'year' ? spanX / 12 * 0.62 : 0.62 * 86400000;
+            const baseY = py(Math.min(0, minY));
+            const barsSvg = bars.map(bar => {
+                const x = px(bar.x - barMs / 2);
+                const width = Math.max(1.4, px(bar.x + barMs / 2) - x);
+                const y = py(bar.y);
+                const height = Math.max(0, baseY - y);
+                return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${height.toFixed(1)}" fill="${barColor}" fill-opacity="0.72" rx="1"/>`;
+            }).join('');
+            const dots = hideLine || bars.length ? '' : points.map(point => `<circle cx="${px(point.x).toFixed(1)}" cy="${py(point.y).toFixed(1)}" r="3.2" fill="${lineColor}"/>`).join('');
             const yLabels = yTicks.map(value => `<text x="2" y="${(py(value) + 3).toFixed(1)}" fill="var(--text-muted)" font-size="10">${formatAxis(value)}</text>`).join('');
             const xLabels = xTicks.map(tick => `<text x="${px(tick.x).toFixed(1)}" y="${h - 6}" text-anchor="${tick.anchor || 'middle'}" fill="var(--text-muted)" font-size="10">${tick.label}</text>`).join('');
 
             // Legende: rote Linie = gemessen/Modell, gestrichelt = Vorhersage
             let legend = '';
             if (solidLabel) {
-                legend = `<line x1="${pad.l + 4}" y1="9" x2="${pad.l + 18}" y2="9" stroke="var(--accent-red)" stroke-width="2.4"/>`
+                legend = `<line x1="${pad.l + 4}" y1="9" x2="${pad.l + 18}" y2="9" stroke="${lineColor}" stroke-width="2.4"/>`
                     + `<text x="${pad.l + 22}" y="12" fill="var(--text-muted)" font-size="10">${solidLabel}</text>`;
                 if (forecast.length) {
-                    legend += `<line x1="${pad.l + 84}" y1="9" x2="${pad.l + 98}" y2="9" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4"/>`
+                    legend += `<line x1="${pad.l + 84}" y1="9" x2="${pad.l + 98}" y2="9" stroke="${forecastColor}" stroke-width="2" stroke-dasharray="5 4"/>`
                         + `<text x="${pad.l + 102}" y="12" fill="var(--text-muted)" font-size="10">${t('log_legend_fc')}</text>`;
                 }
             }
 
             const forecastPath = forecastLine
-                ? `<path d="${forecastLine}" fill="none" stroke="#5e8bba" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round"/>`
+                ? `<path d="${forecastLine}" fill="none" stroke="${forecastColor}" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round"/>`
                 : '';
             const solidPath = line
-                ? `<path d="${line}" fill="none" stroke="var(--accent-red)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`
+                ? `<path d="${line}" fill="none" stroke="${lineColor}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`
                 : '';
 
             host.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${Math.round(210 * h / 200)}">`
@@ -1743,12 +1771,13 @@
                 + `<text x="${w - 8}" y="12" text-anchor="end" fill="var(--text-muted)" font-size="10">${unit}</text>`
                 + yLabels
                 + legend
+                + barsSvg
                 + forecastPath
                 + solidPath
                 + dots
                 + xLabels
                 + `</svg>`;
-            logChartState = { points, forecast, unit, w, h, pad, minX, spanX };
+            logChartState = { points, forecast, bars, barsOnly: hideLine, unit, w, h, pad, minX, spanX };
             clearLogProbe();
         }
 		
@@ -1797,7 +1826,7 @@
         function placeLogProbe(clientX, clientY) {
             const host = document.getElementById('log-chart');
             const svg = host?.querySelector('svg');
-            if (!svg || !logChartState || (!logChartState.points.length && !logChartState.forecast?.length)) return false;
+            if (!svg || !logChartState || (!logChartState.points.length && !logChartState.forecast?.length && !logChartState.bars?.length)) return false;
             const point = svg.createSVGPoint();
             point.x = clientX;
             point.y = clientY;
@@ -1809,8 +1838,17 @@
             const x = Math.min(plotRight, Math.max(pad.l, local.x));
             const dataX = minX + ((x - pad.l) / Math.max(1, plotRight - pad.l)) * spanX;
             const lastSolid = points[points.length - 1]?.x ?? -Infinity;
-            const series = forecast?.length && dataX > lastSolid + 30 * 60000 ? forecast : points;
-            const value = curveValueAt(series.length ? series : points, dataX);
+            let series = forecast?.length && dataX > lastSolid + 30 * 60000 ? forecast : points;
+            let value = curveValueAt(series.length ? series : points, dataX);
+            if (logChartState.barsOnly && logChartState.bars?.length) {
+                let best = logChartState.bars[0];
+                let bestDist = Infinity;
+                for (const bar of logChartState.bars) {
+                    const dist = Math.abs(bar.x - dataX);
+                    if (dist < bestDist) { bestDist = dist; best = bar; }
+                }
+                value = best.y;
+            }
             if (value == null) return false;
             let line = svg.querySelector('#log-probe-line');
             if (!line) {
@@ -2023,6 +2061,100 @@
 			return out.length > 1 ? out : null;
 		}
 
+		function rainHourBars(precip, day, untilNow) {
+			return (precip?.byDay?.[day] || [])
+				.filter(e => e.mm != null && (!untilNow || e.t <= Date.now()))
+				.map(e => ({ x: e.t, y: Math.round(Number(e.mm) * 10) / 10 }));
+		}
+
+		const RAIN_CHART = { lineColor: 'var(--accent-blue)', barColor: 'var(--accent-blue)', forecastColor: 'var(--accent-blue)' };
+
+		function dayNoon(day) {
+			const [y, m, d] = day.split('-').map(Number);
+			return new Date(y, m - 1, d, 12).getTime();
+		}
+
+		// Monat: Tagesbalken + kumulierte Kurve. Jahr: Monatsbalken + kumulierte Tageskurve.
+		function rainPeriodSeries(entries, precip, bounds, range, forecastDays, today) {
+			const fromKey = isoDay(bounds.from);
+			const toKey = isoDay(bounds.to);
+			const measured = new Map();
+			for (const entry of entries || []) {
+				if (entry.t < bounds.from.getTime() || entry.t >= bounds.to.getTime() || entry.rain == null) continue;
+				const day = isoDay(new Date(entry.t));
+				const value = Number(entry.rain);
+				if (!Number.isFinite(value)) continue;
+				measured.set(day, Math.max(measured.get(day) || 0, value));
+			}
+			if (precip?.daily) {
+				for (const [day, mm] of Object.entries(precip.daily)) {
+					if (day < fromKey || day >= toKey || mm == null) continue;
+					measured.set(day, Number(mm));
+				}
+			}
+			const points = [];
+			const bars = [];
+			let sum = 0;
+			const pushDay = (day) => {
+				if (day > today) return false;
+				const mm = measured.get(day) || 0;
+				sum += mm;
+				points.push({ x: dayNoon(day), y: Math.round(sum * 10) / 10 });
+				if (mm > 0) bars.push({ x: dayNoon(day), y: Math.round(mm * 10) / 10 });
+				return true;
+			};
+			if (range === 'year') {
+				const year = bounds.from.getFullYear();
+				for (let month = 0; month < 12; month++) {
+					const start = new Date(year, month, 1);
+					const end = new Date(year, month + 1, 0).getDate();
+					let monthSum = 0;
+					let any = false;
+					for (let d = 1; d <= end; d++) {
+						const day = isoDay(new Date(year, month, d));
+						if (day < fromKey || day >= toKey || day > today) continue;
+						const mm = measured.get(day) || 0;
+						monthSum += mm;
+						sum += mm;
+						points.push({ x: dayNoon(day), y: Math.round(sum * 10) / 10 });
+						any = true;
+					}
+					if (any) bars.push({ x: new Date(year, month, 15, 12).getTime(), y: Math.round(monthSum * 10) / 10 });
+					if (isoDay(start) > today) break;
+				}
+			} else {
+				for (let cursor = new Date(bounds.from); cursor < bounds.to; cursor.setDate(cursor.getDate() + 1)) {
+					if (!pushDay(isoDay(cursor))) break;
+				}
+			}
+			const forecast = [];
+			if (forecastDays?.length && today >= fromKey && today < toKey) {
+				let fsum = sum;
+				const anchor = points.length ? points[points.length - 1].x : bounds.from.getTime();
+				forecast.push({ x: anchor, y: Math.round(fsum * 10) / 10 });
+				for (const item of forecastDays) {
+					if (!item.day || item.day <= today || item.day < fromKey || item.day >= toKey) continue;
+					fsum += Number(item.mm) || 0;
+					forecast.push({ x: dayNoon(item.day), y: Math.round(fsum * 10) / 10 });
+				}
+				if (forecast.length < 2) forecast.length = 0;
+			}
+			return { points, bars, forecast };
+		}
+
+		let rainFcDailyCache = null;
+		async function loadRainForecastDays(lat, lon) {
+			const model = weatherModel() === 'best' ? '' : '&models=ecmwf_ifs';
+			const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)},${model}`;
+			if (rainFcDailyCache?.key === key && Date.now() - rainFcDailyCache.loadedAt < LOG_CACHE_TTL_MS) return rainFcDailyCache.days;
+			const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=precipitation_sum&timezone=auto&forecast_days=16${model}`, { cache: 'no-store' });
+			if (!res.ok) return [];
+			const data = await res.json();
+			const days = (data.daily?.time || []).map((day, i) => ({ day, mm: Number(data.daily.precipitation_sum?.[i] || 0) }));
+			rainFcDailyCache = { key, days, loadedAt: Date.now() };
+			return days;
+		}
+
 		function rainSourceText(station, measured, isToday) {
 			const dist = station?.distanceKm != null ? ` · ${Math.round(station.distanceKm)} km` : '';
 			const parts = [`Messstation: ${station?.name || station?.id || 'DWD'}${dist}`];
@@ -2070,7 +2202,8 @@
             document.getElementById('log-metrics').innerHTML = Object.keys(LOG_METRICS).map(key =>
                 '<button type="button" class="log-switch ' + (logMetric === key ? 'active' : '') + '" data-metric="' + key + '">' + t('log_' + key) + '</button>'
             ).join('');
-            document.getElementById('log-ranges').innerHTML = ['day', 'week', 'month', 'year'].map(key =>
+            if (logRange === 'week') logRange = 'day';
+            document.getElementById('log-ranges').innerHTML = ['day', 'month', 'year'].map(key =>
                 '<button type="button" class="log-switch ' + (logRange === key ? 'active' : '') + '" data-range="' + key + '">' + t('log_' + key) + '</button>'
             ).join('');
 
@@ -2118,7 +2251,10 @@
                         if (measured) {
                             sourceEl.textContent = rainSourceText(obs.precip.dayStation?.[day] || obs.precip.station, measured, isToday);
                             const forecast = isToday ? anchorForecast(measured, fcRows) : null;
-                            drawLogChart(measured.points, unit, logRange, bounds, logMetric, forecast, t('log_legend_meas'));
+                            drawLogChart(measured.points, unit, logRange, bounds, logMetric, forecast, t('log_legend_meas'), {
+                                ...RAIN_CHART,
+                                bars: rainHourBars(obs.precip, day, isToday)
+                            });
                             return;
                         }
                         // Keine Messung: Modell als durchgezogene Linie, klar gekennzeichnet
@@ -2129,7 +2265,7 @@
                         const solid = points.length ? points : fallback;
                         const last = solid[solid.length - 1];
                         const forecast = isToday && last ? anchorForecast({ lastT: last.x, sum: last.y }, fcRows) : null;
-                        drawLogChart(solid, unit, logRange, bounds, logMetric, forecast, t('log_legend_model'));
+                        drawLogChart(solid, unit, logRange, bounds, logMetric, forecast, t('log_legend_model'), RAIN_CHART);
                     }).catch(() => {
                         if (alive()) drawLogChart(fallback, unit, logRange, bounds, logMetric);
                     });
@@ -2156,47 +2292,52 @@
                 return;
             }
 
-            // ===== Woche / Monat / Jahr =====
-            const pss = lastPrecipObs?.stations;
-            if (logMetric === 'rain' && (pss || store?.precipStation?.name)) {
-                sourceEl.hidden = false;
-                sourceEl.textContent = pss && pss.live && pss.near && pss.live.id !== pss.near.id
-                    ? 'Messstationen: ' + precipStationText(pss.near) + ' (' + t('src_rain_past') + ') · ' + precipStationText(pss.live) + ' (' + t('src_rain_today') + ')'
-                    : 'Messstation: ' + precipStationText(pss?.live || pss?.near || store.precipStation);
-            } else {
+            // ===== Monat / Jahr =====
+            const entries = store?.entries || [];
+            if (logMetric === 'sun') {
                 sourceEl.hidden = true;
                 sourceEl.textContent = '';
+                const bars = pointsForLog(entries, 'sun', logRange, logAnchor).map(point => {
+                    const date = new Date(point.x);
+                    const x = logRange === 'year'
+                        ? new Date(date.getFullYear(), date.getMonth(), 15, 12).getTime()
+                        : new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12).getTime();
+                    return { x, y: point.y };
+                });
+                drawLogChart([], unit, logRange, bounds, logMetric, null, null, {
+                    bars, hideLine: true, barColor: '#e6b325', zeroBase: true
+                });
+                return;
             }
-            const entries = store?.entries || [];
-            const drawRange = (rows) => {
-                const points = pointsForLog(rows, logMetric, logRange, logAnchor);
-                drawLogChart(points, unit, logRange, bounds, logMetric);
-            };
-            drawRange(entries);
             if (logMetric === 'rain') {
                 const token = ++logDayToken;
-                ensurePrecipObs(lat, lon).then(obs => {
-                    if (token !== logDayToken || logRange === 'day' || logMetric !== 'rain' || !obs) return;
-                    const loaded = obs.stations;
+                const offset = placeOffsetSeconds(lat, lon);
+                const today = dayKeyFromOffset(offset);
+                const paintRain = (obs, forecastDays) => {
+                    const loaded = obs?.stations;
                     sourceEl.hidden = false;
                     sourceEl.textContent = loaded && loaded.live && loaded.near && loaded.live.id !== loaded.near.id
                         ? 'Messstationen: ' + precipStationText(loaded.near) + ' (' + t('src_rain_past') + ') · ' + precipStationText(loaded.live) + ' (' + t('src_rain_today') + ')'
-                        : 'Messstation: ' + precipStationText(loaded?.live || loaded?.near || obs.station);
-                    const offset = placeOffsetSeconds(lat, lon);
-                    const today = dayKeyFromOffset(offset);
-                    const measured = measuredRainUntil(obs.precip, today, offset, true);
-                    if (!measured) return;
-                    let seen = false;
-                    const patched = entries.map(entry => {
-                        const day = new Date(entry.t + offset * 1000).toISOString().slice(0, 10);
-                        if (day !== today) return entry;
-                        seen = true;
-                        return { ...entry, rain: measured.sum };
+                        : 'Messstation: ' + precipStationText(loaded?.live || loaded?.near || obs?.station || store?.precipStation);
+                    const series = rainPeriodSeries(entries, obs?.precip, bounds, logRange, forecastDays, today);
+                    drawLogChart(series.points, unit, logRange, bounds, 'rain', series.forecast, t('log_legend_meas'), {
+                        ...RAIN_CHART,
+                        bars: series.bars
                     });
-                    if (!seen) patched.push({ t: Date.now(), rain: measured.sum });
-                    drawRange(patched);
+                };
+                paintRain(null, []);
+                Promise.all([
+                    ensurePrecipObs(lat, lon).catch(() => null),
+                    loadRainForecastDays(lat, lon).catch(() => [])
+                ]).then(([obs, forecastDays]) => {
+                    if (token !== logDayToken || logRange === 'day' || logMetric !== 'rain') return;
+                    paintRain(obs, forecastDays);
                 }).catch(() => {});
+                return;
             }
+            sourceEl.hidden = true;
+            sourceEl.textContent = '';
+            drawLogChart(pointsForLog(entries, logMetric, logRange, logAnchor), unit, logRange, bounds, logMetric);
         }
 		
         function openLogPage() {
