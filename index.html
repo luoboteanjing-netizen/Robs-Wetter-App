@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.42">
+    <link rel="manifest" href="manifest.json?v=2.43">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
@@ -504,6 +504,8 @@
         .place-del { display: flex; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 8px; }
         .place-del:hover, .place-del:active { color: var(--accent-red); }
         .place-empty { padding: 14px 12px; font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+        .home-log { margin: 4px 0 8px; }
+        .home-log .graph-header { margin-bottom: 10px; }
         .log-chart { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 8px; min-height: 200px; cursor: crosshair; touch-action: none; overflow: hidden; text-align: left; }
         .log-chart svg { display: block; width: 100%; margin: 0; }
         .log-probe { margin: 8px 0 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-main); }
@@ -681,6 +683,25 @@
             <div class="radar-fs-dock" id="radar-fs-dock"></div>
         </div>
 
+        <div class="home-log" id="home-log">
+            <div class="graph-header">
+                <span data-i18n="log_title">VERLAUF</span>
+                <span id="home-log-place"></span>
+            </div>
+            <div class="log-switches" id="home-log-metrics"></div>
+            <div class="log-switches" id="home-log-ranges"></div>
+            <div class="log-nav">
+                <button type="button" id="home-log-prev" aria-label="Zurück">‹</button>
+                <input type="date" id="home-log-date">
+                <input type="month" id="home-log-month" hidden>
+                <select id="home-log-year" hidden></select>
+                <button type="button" id="home-log-next" aria-label="Weiter">›</button>
+            </div>
+            <p class="log-note" id="home-log-source" hidden></p>
+            <div class="log-chart" id="home-log-chart"></div>
+            <p class="log-probe" id="home-log-probe" hidden></p>
+        </div>
+
         <div class="footer">
             <span data-i18n="weather_data_by">Wetterdaten von</span> <a href="https://open-meteo.com/" target="_blank">Open-Meteo.com</a> &nbsp; <strong id="footer-info-trigger" style="cursor:pointer;" data-i18n="sources">QUELLEN</strong> ⌄
         </div>
@@ -774,7 +795,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.42</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.43</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -936,7 +957,7 @@
             }
         };
 
-        const APP_VERSION = '2.42';
+        const APP_VERSION = '2.43';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1131,7 +1152,7 @@
         }
 
         function showPage(id) {
-            if (id !== 'page-log') clearLogProbe();
+            if (id !== 'page-log') clearLogProbe('page');
             document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('active'));
             if (!id) return;
             const page = document.getElementById(id);
@@ -1244,6 +1265,7 @@
             if(map) syncRadarView();
             checkIfCurrentIsFav();
             setStatus(t('loading'), true);
+            renderHomeLog();
             fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
         }
 
@@ -1341,6 +1363,17 @@
         let logRange = 'day';
         let logMetric = 'temp';
         let logAnchor = new Date();
+        function loadLogView() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('panda_log_view') || 'null');
+                if (saved && ['temp', 'sun', 'wind', 'pressure', 'rain'].includes(saved.metric)) logMetric = saved.metric;
+                if (saved && ['day', 'month', 'year'].includes(saved.range)) logRange = saved.range;
+            } catch (e) {}
+        }
+        function saveLogView() {
+            try { localStorage.setItem('panda_log_view', JSON.stringify({ metric: logMetric, range: logRange })); } catch (e) {}
+        }
+        loadLogView();
 
         const LOG_METRICS = {
             temp: { key: 'temp', unit: '°C', agg: 'avg' },
@@ -1508,6 +1541,7 @@
                 index.push({ key, name, lat: store.lat, lon: store.lon });
                 localStorage.setItem('panda_log_index', JSON.stringify(index));
                 if (document.getElementById('page-log')?.classList.contains('active')) renderLogPage();
+                renderHomeLog();
             } catch (err) {
                 console.error('Vergangenheit nicht geladen', err);
             }
@@ -1623,7 +1657,8 @@
         }
 
         function drawLogChart(points, unit, range, bounds, metric = '', forecastPoints = null, solidLabel = null, opts = {}) {
-            const host = document.getElementById('log-chart');
+            const host = document.getElementById(opts.hostId || 'log-chart');
+            if (!host) return;
             // Nur gueltige Punkte zeichnen: NaN/Infinity machen sonst die ganze Achse kaputt
             const valid = (p) => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y));
             points = (points || []).filter(valid).map(p => ({ ...p, y: Number(p.y) }));
@@ -1777,8 +1812,9 @@
                 + dots
                 + xLabels
                 + `</svg>`;
-            logChartState = { points, forecast, bars, barsOnly: hideLine, unit, w, h, pad, minX, spanX };
-            clearLogProbe();
+            host._logState = { points, forecast, bars, barsOnly: hideLine, unit, w, h, pad, minX, spanX };
+            logChartState = host._logState;
+            clearLogProbe(opts.hostKey || 'page');
         }
 		
         let logChartState = null;
@@ -1815,45 +1851,50 @@
             return last.y;
         }
 
-        function clearLogProbe() {
-            document.getElementById('log-probe-line')?.remove();
-            const probe = document.getElementById('log-probe');
-            if (!probe) return;
-            probe.hidden = true;
-            probe.textContent = '';
+        function clearLogProbe(which) {
+            const keys = which === 'home' ? ['home'] : which === 'page' ? ['page'] : ['page', 'home'];
+            keys.forEach(key => {
+                const chart = document.getElementById(key === 'home' ? 'home-log-chart' : 'log-chart');
+                chart?.querySelector('.log-probe-line')?.remove();
+                const probe = document.getElementById(key === 'home' ? 'home-log-probe' : 'log-probe');
+                if (!probe) return;
+                probe.hidden = true;
+                probe.textContent = '';
+            });
         }
 
-        function placeLogProbe(clientX, clientY) {
-            const host = document.getElementById('log-chart');
+        function placeLogProbe(clientX, clientY, host) {
+            host = host || document.getElementById('log-chart');
             const svg = host?.querySelector('svg');
-            if (!svg || !logChartState || (!logChartState.points.length && !logChartState.forecast?.length && !logChartState.bars?.length)) return false;
+            const state = host?._logState;
+            if (!svg || !state || (!state.points.length && !state.forecast?.length && !state.bars?.length)) return false;
             const point = svg.createSVGPoint();
             point.x = clientX;
             point.y = clientY;
             const ctm = svg.getScreenCTM();
             if (!ctm) return false;
             const local = point.matrixTransform(ctm.inverse());
-            const { pad, w, h, minX, spanX, points, forecast, unit } = logChartState;
+            const { pad, w, h, minX, spanX, points, forecast, unit } = state;
             const plotRight = w - pad.r;
             const x = Math.min(plotRight, Math.max(pad.l, local.x));
             const dataX = minX + ((x - pad.l) / Math.max(1, plotRight - pad.l)) * spanX;
             const lastSolid = points[points.length - 1]?.x ?? -Infinity;
             let series = forecast?.length && dataX > lastSolid + 30 * 60000 ? forecast : points;
             let value = curveValueAt(series.length ? series : points, dataX);
-            if (logChartState.barsOnly && logChartState.bars?.length) {
-                let best = logChartState.bars[0];
+            if (state.barsOnly && state.bars?.length) {
+                let best = state.bars[0];
                 let bestDist = Infinity;
-                for (const bar of logChartState.bars) {
+                for (const bar of state.bars) {
                     const dist = Math.abs(bar.x - dataX);
                     if (dist < bestDist) { bestDist = dist; best = bar; }
                 }
                 value = best.y;
             }
             if (value == null) return false;
-            let line = svg.querySelector('#log-probe-line');
+            let line = svg.querySelector('.log-probe-line');
             if (!line) {
                 line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.id = 'log-probe-line';
+                line.setAttribute('class', 'log-probe-line');
                 line.setAttribute('stroke', '#e63946');
                 line.setAttribute('stroke-width', '1.5');
                 line.setAttribute('pointer-events', 'none');
@@ -1863,27 +1904,35 @@
             line.setAttribute('x2', x);
             line.setAttribute('y1', pad.t);
             line.setAttribute('y2', h - pad.b);
-            const probe = document.getElementById('log-probe');
-            probe.hidden = false;
-            probe.textContent = `${formatProbeX(dataX)} · ${formatProbeValue(value, unit)}`;
+            const probe = document.getElementById(host.id === 'home-log-chart' ? 'home-log-probe' : 'log-probe');
+            if (probe) {
+                probe.hidden = false;
+                probe.textContent = `${formatProbeX(dataX)} · ${formatProbeValue(value, unit)}`;
+            }
             return true;
         }
 
         let logProbeDrag = false;
-        const logChartEl = document.getElementById('log-chart');
-        logChartEl.addEventListener('pointerdown', (event) => {
-            if (!placeLogProbe(event.clientX, event.clientY)) return;
-            logProbeDrag = true;
-            logChartEl.setPointerCapture(event.pointerId);
-            event.preventDefault();
-        });
-        logChartEl.addEventListener('pointermove', (event) => {
-            if (!logProbeDrag) return;
-            placeLogProbe(event.clientX, event.clientY);
-        });
-        const endLogProbeDrag = () => { logProbeDrag = false; };
-        logChartEl.addEventListener('pointerup', endLogProbeDrag);
-        logChartEl.addEventListener('pointercancel', endLogProbeDrag);
+        let logProbeHost = null;
+        function bindLogProbe(el) {
+            if (!el) return;
+            el.addEventListener('pointerdown', (event) => {
+                if (!placeLogProbe(event.clientX, event.clientY, el)) return;
+                logProbeDrag = true;
+                logProbeHost = el;
+                el.setPointerCapture(event.pointerId);
+                event.preventDefault();
+            });
+            el.addEventListener('pointermove', (event) => {
+                if (!logProbeDrag || logProbeHost !== el) return;
+                placeLogProbe(event.clientX, event.clientY, el);
+            });
+            const end = () => { if (logProbeHost === el) logProbeDrag = false; };
+            el.addEventListener('pointerup', end);
+            el.addEventListener('pointercancel', end);
+        }
+        bindLogProbe(document.getElementById('log-chart'));
+        bindLogProbe(document.getElementById('home-log-chart'));
 
         function shiftLogAnchor(direction) {
             const next = new Date(logAnchor);
@@ -1896,6 +1945,7 @@
 
 		let dayModelCache = null;
 		let logDayToken = 0;
+		let homeLogToken = 0;
 		const LOG_CACHE_TTL_MS = 10 * 60 * 1000;
 
 		async function loadDayModelHours(lat, lon, day) {
@@ -2165,15 +2215,35 @@
 			return parts.join(' · ');
 		}
 
-        function renderLogPage() {
+        function renderHomeLog() {
+            renderLogPage('home');
+        }
+
+        function renderLogViews() {
+            renderHomeLog();
+            if (document.getElementById('page-log')?.classList.contains('active')) renderLogPage();
+        }
+
+        function renderLogPage(mode) {
+            const home = mode === 'home';
+            const nid = (name) => document.getElementById((home ? 'home-' : '') + name);
+            const chartHostId = home ? 'home-log-chart' : 'log-chart';
+            const hostKey = home ? 'home' : 'page';
+            const draw = (points, unit, range, bounds, metric, forecast, label, opts) => {
+                drawLogChart(points, unit, range, bounds, metric, forecast, label, Object.assign({}, opts, { hostId: chartHostId, hostKey }));
+            };
+            const token = home ? ++homeLogToken : ++logDayToken;
+            const tokenOk = () => (home ? homeLogToken : logDayToken) === token;
             const index = readLogIndex();
+            const currentKey = resolveLogKey(currentLat, currentLon, currentCityName);
+            let activePlace = null;
+            if (!home) {
             const placeBtn = document.getElementById('log-place-btn');
             const placeList = document.getElementById('log-place-list');
-            const currentKey = resolveLogKey(currentLat, currentLon, currentCityName);
             if (!logPlaceKey) logPlaceKey = currentKey;
             if (!index.some(item => item.key === logPlaceKey)) logPlaceKey = index[0]?.key || currentKey;
             const placeItems = index.map(item => ({ ...item, size: logSizeBytes(item.key) }));
-            const activePlace = placeItems.find(item => item.key === logPlaceKey);
+            activePlace = placeItems.find(item => item.key === logPlaceKey);
 
             // Ortsauswahl
             placeBtn.innerHTML = '<span class="place-name">' + escapeLogHtml(activePlace?.name || currentCityName) + '</span>'
@@ -2197,20 +2267,24 @@
             } else {
                 placeList.innerHTML = '<div class="place-empty">' + t('log_no_places') + '</div>';
             }
+            }
+
+            const placeEl = document.getElementById('home-log-place');
+            if (home && placeEl) placeEl.textContent = currentCityName || '';
 
             // Schalter fuer Messgroesse und Zeitraum
-            document.getElementById('log-metrics').innerHTML = Object.keys(LOG_METRICS).map(key =>
+            nid('log-metrics').innerHTML = Object.keys(LOG_METRICS).map(key =>
                 '<button type="button" class="log-switch ' + (logMetric === key ? 'active' : '') + '" data-metric="' + key + '">' + t('log_' + key) + '</button>'
             ).join('');
             if (logRange === 'week') logRange = 'day';
-            document.getElementById('log-ranges').innerHTML = ['day', 'month', 'year'].map(key =>
+            nid('log-ranges').innerHTML = ['day', 'month', 'year'].map(key =>
                 '<button type="button" class="log-switch ' + (logRange === key ? 'active' : '') + '" data-range="' + key + '">' + t('log_' + key) + '</button>'
             ).join('');
 
             // Datumsauswahl
-            const dateInput = document.getElementById('log-date');
-            const monthInput = document.getElementById('log-month');
-            const yearInput = document.getElementById('log-year');
+            const dateInput = nid('log-date');
+            const monthInput = nid('log-month');
+            const yearInput = nid('log-year');
             dateInput.hidden = logRange === 'month' || logRange === 'year';
             monthInput.hidden = logRange !== 'month';
             yearInput.hidden = logRange !== 'year';
@@ -2221,27 +2295,27 @@
             yearInput.innerHTML = [...years].sort().map(year => '<option value="' + year + '">' + year + '</option>').join('');
             yearInput.value = String(logAnchor.getFullYear());
 
-            const store = readLog(logPlaceKey);
-            const sourceEl = document.getElementById('log-source');
+            const placeKey = home ? currentKey : logPlaceKey;
+            const store = readLog(placeKey);
+            const sourceEl = nid('log-source');
             const bounds = logRangeBounds(logAnchor, logRange);
             const unit = LOG_METRICS[logMetric].unit;
-            const lat = activePlace?.lat ?? store?.lat ?? currentLat;
-            const lon = activePlace?.lon ?? store?.lon ?? currentLon;
+            const lat = home ? currentLat : (activePlace?.lat ?? store?.lat ?? currentLat);
+            const lon = home ? currentLon : (activePlace?.lon ?? store?.lon ?? currentLon);
 
             // ===== Tagesansicht =====
             if (logRange === 'day') {
                 sourceEl.hidden = false;
                 sourceEl.textContent = t('log_model_hours');
                 const day = isoDay(logAnchor);
-                const token = ++logDayToken;
                 const offset = placeOffsetSeconds(lat, lon);
                 const isToday = day === dayKeyFromOffset(offset);
                 const fallback = pointsForLog(store?.entries || [], logMetric, logRange, logAnchor);
-                drawLogChart(fallback, unit, logRange, bounds, logMetric);
+                draw(fallback, unit, logRange, bounds, logMetric);
 
-                // Regen: Messung (rot) + Vorhersage ab letzter Messung (gestrichelt)
+                // Regen: Messung (blau) + Vorhersage ab letzter Messung (gestrichelt)
                 if (logMetric === 'rain') {
-                    const alive = () => token === logDayToken && logRange === 'day' && logMetric === 'rain';
+                    const alive = () => tokenOk() && logRange === 'day' && logMetric === 'rain';
                     Promise.all([
                         ensurePrecipObs(lat, lon).catch(() => null),
                         isToday ? loadTodayForecast(lat, lon, day).catch(() => []) : Promise.resolve([])
@@ -2251,7 +2325,7 @@
                         if (measured) {
                             sourceEl.textContent = rainSourceText(obs.precip.dayStation?.[day] || obs.precip.station, measured, isToday);
                             const forecast = isToday ? anchorForecast(measured, fcRows) : null;
-                            drawLogChart(measured.points, unit, logRange, bounds, logMetric, forecast, t('log_legend_meas'), {
+                            draw(measured.points, unit, logRange, bounds, logMetric, forecast, t('log_legend_meas'), {
                                 ...RAIN_CHART,
                                 bars: rainHourBars(obs.precip, day, isToday)
                             });
@@ -2265,15 +2339,15 @@
                         const solid = points.length ? points : fallback;
                         const last = solid[solid.length - 1];
                         const forecast = isToday && last ? anchorForecast({ lastT: last.x, sum: last.y }, fcRows) : null;
-                        drawLogChart(solid, unit, logRange, bounds, logMetric, forecast, t('log_legend_model'), RAIN_CHART);
+                        draw(solid, unit, logRange, bounds, logMetric, forecast, t('log_legend_model'), RAIN_CHART);
                     }).catch(() => {
-                        if (alive()) drawLogChart(fallback, unit, logRange, bounds, logMetric);
+                        if (alive()) draw(fallback, unit, logRange, bounds, logMetric);
                     });
                     return;
                 }
 
                 // Andere Werte: Modellstunden, bei Temperatur heute mit Vorhersage
-                const alive = () => token === logDayToken && logRange === 'day';
+                const alive = () => tokenOk() && logRange === 'day';
                 loadDayModelHours(lat, lon, day).then(async cached => {
                     if (!alive()) return;
                     const points = pointsFromDayModel(cached.rows, logMetric);
@@ -2285,9 +2359,9 @@
                         forecast = forecastPointsFor(rows, 'temp').filter(p => p.x >= lastT);
                     }
                     if (!alive()) return;
-                    drawLogChart(solid, unit, logRange, bounds, logMetric, forecast);
+                    draw(solid, unit, logRange, bounds, logMetric, forecast);
                 }).catch(() => {
-                    if (alive()) drawLogChart(fallback, unit, logRange, bounds, logMetric);
+                    if (alive()) draw(fallback, unit, logRange, bounds, logMetric);
                 });
                 return;
             }
@@ -2304,13 +2378,12 @@
                         : new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12).getTime();
                     return { x, y: point.y };
                 });
-                drawLogChart([], unit, logRange, bounds, logMetric, null, null, {
+                draw([], unit, logRange, bounds, logMetric, null, null, {
                     bars, hideLine: true, barColor: '#e6b325', zeroBase: true
                 });
                 return;
             }
             if (logMetric === 'rain') {
-                const token = ++logDayToken;
                 const offset = placeOffsetSeconds(lat, lon);
                 const today = dayKeyFromOffset(offset);
                 const paintRain = (obs, forecastDays) => {
@@ -2320,7 +2393,7 @@
                         ? 'Messstationen: ' + precipStationText(loaded.near) + ' (' + t('src_rain_past') + ') · ' + precipStationText(loaded.live) + ' (' + t('src_rain_today') + ')'
                         : 'Messstation: ' + precipStationText(loaded?.live || loaded?.near || obs?.station || store?.precipStation);
                     const series = rainPeriodSeries(entries, obs?.precip, bounds, logRange, forecastDays, today);
-                    drawLogChart(series.points, unit, logRange, bounds, 'rain', series.forecast, t('log_legend_meas'), {
+                    draw(series.points, unit, logRange, bounds, 'rain', series.forecast, t('log_legend_meas'), {
                         ...RAIN_CHART,
                         bars: series.bars
                     });
@@ -2330,14 +2403,14 @@
                     ensurePrecipObs(lat, lon).catch(() => null),
                     loadRainForecastDays(lat, lon).catch(() => [])
                 ]).then(([obs, forecastDays]) => {
-                    if (token !== logDayToken || logRange === 'day' || logMetric !== 'rain') return;
+                    if (!tokenOk() || logRange === 'day' || logMetric !== 'rain') return;
                     paintRain(obs, forecastDays);
                 }).catch(() => {});
                 return;
             }
             sourceEl.hidden = true;
             sourceEl.textContent = '';
-            drawLogChart(pointsForLog(entries, logMetric, logRange, logAnchor), unit, logRange, bounds, logMetric);
+            draw(pointsForLog(entries, logMetric, logRange, logAnchor), unit, logRange, bounds, logMetric);
         }
 		
         function openLogPage() {
@@ -2374,23 +2447,35 @@
             logPlaceOpen = false;
             renderLogPage();
         };
-        document.getElementById('log-metrics').onclick = (event) => {
+        function onLogMetricClick(event) {
             const key = event.target.dataset.metric;
-            if (!key) return;
+            if (!key || !LOG_METRICS[key]) return;
             logMetric = key;
-            renderLogPage();
-        };
-        document.getElementById('log-ranges').onclick = (event) => {
+            saveLogView();
+            renderLogViews();
+        }
+        function onLogRangeClick(event) {
             const key = event.target.dataset.range;
-            if (!key) return;
+            if (!key || !['day', 'month', 'year'].includes(key)) return;
             logRange = key;
-            renderLogPage();
-        };
-        document.getElementById('log-prev').onclick = () => { shiftLogAnchor(-1); renderLogPage(); };
-        document.getElementById('log-next').onclick = () => { shiftLogAnchor(1); renderLogPage(); };
-        document.getElementById('log-date').onchange = (event) => { logAnchor = new Date(event.target.value + 'T12:00:00'); renderLogPage(); };
-        document.getElementById('log-month').onchange = (event) => { logAnchor = new Date(event.target.value + '-01T12:00:00'); renderLogPage(); };
-        document.getElementById('log-year').onchange = (event) => { logAnchor = new Date(Number(event.target.value), logAnchor.getMonth(), 1); renderLogPage(); };
+            saveLogView();
+            renderLogViews();
+        }
+        document.getElementById('log-metrics').onclick = onLogMetricClick;
+        document.getElementById('home-log-metrics').onclick = onLogMetricClick;
+        document.getElementById('log-ranges').onclick = onLogRangeClick;
+        document.getElementById('home-log-ranges').onclick = onLogRangeClick;
+        document.getElementById('log-prev').onclick = () => { shiftLogAnchor(-1); renderLogViews(); };
+        document.getElementById('home-log-prev').onclick = () => { shiftLogAnchor(-1); renderLogViews(); };
+        document.getElementById('log-next').onclick = () => { shiftLogAnchor(1); renderLogViews(); };
+        document.getElementById('home-log-next').onclick = () => { shiftLogAnchor(1); renderLogViews(); };
+        document.getElementById('log-date').onchange = (event) => { logAnchor = new Date(event.target.value + 'T12:00:00'); renderLogViews(); };
+        document.getElementById('home-log-date').onchange = (event) => { logAnchor = new Date(event.target.value + 'T12:00:00'); renderLogViews(); };
+        document.getElementById('log-month').onchange = (event) => { logAnchor = new Date(event.target.value + '-01T12:00:00'); renderLogViews(); };
+        document.getElementById('home-log-month').onchange = (event) => { logAnchor = new Date(event.target.value + '-01T12:00:00'); renderLogViews(); };
+        document.getElementById('log-year').onchange = (event) => { logAnchor = new Date(Number(event.target.value), logAnchor.getMonth(), 1); renderLogViews(); };
+        document.getElementById('home-log-year').onchange = (event) => { logAnchor = new Date(Number(event.target.value), logAnchor.getMonth(), 1); renderLogViews(); };
+        renderHomeLog();
 
         // --- 6. WETTER DATEN ---
         // Temperatur und die uebrige Vorhersage: Open-Meteo best_match, nicht die Nachbarstation
@@ -3392,6 +3477,7 @@
                 }
                 // Verlauf (60 Tage) erst im Hintergrund nachladen, nachdem die Hauptansicht steht
                 setTimeout(() => backfillWeatherLog(lat, lon, name), 1500);
+                renderHomeLog();
             } catch (error) {
                 console.error("Fehler beim Laden:", error);
                 if (!restoreCachedForecast()) {
@@ -4636,6 +4722,7 @@
             const el = document.getElementById('city-name');
             if (el && el.textContent) fitCityName(el.textContent);
             if (document.getElementById('page-log')?.classList.contains('active')) renderLogPage();
+            renderHomeLog();
         });
 
         let hourlyCentered = false;
