@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.45">
+    <link rel="manifest" href="manifest.json?v=2.46">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
@@ -812,7 +812,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.45</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.46</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -974,7 +974,7 @@
             }
         };
 
-        const APP_VERSION = '2.45';
+        const APP_VERSION = '2.46';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -4317,7 +4317,7 @@
             const speed = Math.round(peakWind);
             const gust = Math.round(peakGust);
             const storm = peakWind >= 75 || peakGust >= 90;
-            const gusty = gust >= 40 && gust >= speed + 10;
+            const gusty = gust >= speed + 5 && gust >= 10;
             if (currentLang === 'zh') {
                 let text = storm ? `风暴 ${dir} ${speed} km/h` : `风 ${dir} ${speed} km/h`;
                 if (later) text += `，大约${time}起`;
@@ -4477,13 +4477,8 @@
                 lines.push(text);
             }
 
-            // 4) Wind nur, wenn auffaellig
-            let peakW = 0, peakG = 0;
-            for (let i = s; i < end; i++) {
-                peakW = Math.max(peakW, num(hourly.wind_speed_10m, i) ?? 0);
-                peakG = Math.max(peakG, num(hourly.wind_gusts_10m, i) ?? 0);
-            }
-            if (peakW >= 30 || peakG >= 55) lines.push(windOutlook(hourly, current, s, end));
+            // 4) Wind und Boeen immer, nicht nur bei Sturm
+            lines.push(windOutlook(hourly, current, s, end));
             return lines.filter(Boolean);
         }
 
