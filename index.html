@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
-    <link rel="manifest" href="manifest.json?v=2.46">
+    <link rel="manifest" href="manifest.json?v=2.47">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Panda Wetter">
@@ -812,7 +812,7 @@
                 <p data-i18n="privacy_text">Kein Tracking, keine Analyse, keine Werbung, keine Konten. Die App fragt Wetterdienste nur mit Koordinaten an. Favoriten, Standort und Vorhersagen bleiben auf diesem Gerät.</p>
             </div>
         </div>
-        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.46</span></div>
+        <div class="app-version"><span data-i18n="version">Version</span> <span id="app-version">2.47</span></div>
     </div>
 
     <div class="sub-page" id="page-log">
@@ -974,7 +974,7 @@
             }
         };
 
-        const APP_VERSION = '2.46';
+        const APP_VERSION = '2.47';
         let currentLang = localStorage.getItem('panda_lang') || 'de';
         
         function t(key) {
@@ -1281,6 +1281,9 @@
             } catch (e) {}
             if(map) syncRadarView();
             checkIfCurrentIsFav();
+            fitCityName(name);
+            document.getElementById('city-region').innerText = region;
+            clearForecastViews();
             setStatus(t('loading'), true);
             renderHomeLog();
             fetchWeather(currentLat, currentLon, currentCityName, currentRegionName);
@@ -1487,6 +1490,7 @@
                 const store = readLog(key) || { name, lat, lon, entries: [] };
                 store.name = name;
                 if (data.precipStation) store.precipStation = data.precipStation;
+                store.entries = compactLogEntries(store.entries);
                 const last = store.entries[store.entries.length - 1];
                 if (last && timestamp - last.t < 60 * 1000) {
                     localStorage.setItem(key, JSON.stringify(store));
@@ -1502,6 +1506,7 @@
                     pressure: Math.round(data.current.pressure_msl || 0),
                     rain: round1(sumUntilNow(data.hourly, 'precipitation', nowKey))
                 });
+                store.entries = compactLogEntries(store.entries);
                 if (store.entries.length > 8000) store.entries = store.entries.slice(-8000);
                 localStorage.setItem(key, JSON.stringify(store));
                 const index = readLogIndex().filter(item => item.key !== key);
@@ -1512,17 +1517,65 @@
             }
         }
 
+        function patchStoredRain(store, lat, lon, offsetSeconds, today, round1) {
+            if (!store || !lastPrecipObs || Math.abs(lastPrecipObs.lat - lat) >= 0.02 || !lastPrecipObs.precip?.daily) return false;
+            const end = today || '9999-99-99';
+            const r = round1 || (value => Math.round(Number(value) * 10) / 10);
+            let changed = false;
+            store.entries.forEach(entry => {
+                const day = logDayKey(entry, offsetSeconds || 0);
+                if (!day || day >= end) return;
+                if (lastPrecipObs.precip.daily[day] == null) return;
+                const rain = r(lastPrecipObs.precip.daily[day]);
+                if (entry.rain !== rain) { entry.rain = rain; changed = true; }
+            });
+            return changed;
+        }
+
+        function logDayKey(entry, offsetSeconds) {
+            return new Date(entry.t + (offsetSeconds || 0) * 1000).toISOString().slice(0, 10);
+        }
+
+        // Abgeschlossene Tage: ein Eintrag. Heute: hoechstens einer pro Stunde.
+        function compactLogEntries(entries, todayKey) {
+            const today = todayKey || isoDay(new Date());
+            const past = new Map();
+            const hours = new Map();
+            for (const entry of entries || []) {
+                const day = isoDay(new Date(entry.t));
+                if (day < today) {
+                    const prev = past.get(day);
+                    if (!prev || (entry.hist && !prev.hist) || (!!entry.hist === !!prev.hist && entry.t >= prev.t)) past.set(day, entry);
+                } else {
+                    const hour = new Date(entry.t).getHours();
+                    const prev = hours.get(hour);
+                    if (!prev || entry.t >= prev.t) hours.set(hour, entry);
+                }
+            }
+            return [...past.values(), ...hours.values()].sort((a, b) => a.t - b.t);
+        }
+
         async function backfillWeatherLog(lat, lon, name) {
             if (!isFavoritePlace(lat, lon, name)) return;
             try {
+                const key = resolveLogKey(lat, lon, name);
+                const store = readLog(key) || { name, lat, lon, entries: [] };
+                const todayLocal = isoDay(new Date());
+                const needFrom = shiftDayKey(todayLocal, -60);
+                store.entries = compactLogEntries(store.entries, todayLocal);
+                if (store.histFrom && store.histFrom <= needFrom) {
+                    if (patchStoredRain(store, lat, lon)) {
+                        localStorage.setItem(key, JSON.stringify(store));
+                        renderHomeLog();
+                    }
+                    return;
+                }
                 const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_mean,sunshine_duration,wind_speed_10m_mean,precipitation_sum,pressure_msl_mean&timezone=auto&past_days=60&forecast_days=1`;
                 const response = await fetch(url);
                 if (!response.ok) return;
                 const data = await response.json();
                 const offset = data.utc_offset_seconds || 0;
-                const key = resolveLogKey(lat, lon, name);
-                const store = readLog(key) || { name, lat, lon, entries: [] };
-                const covered = new Set(store.entries.map(entry => new Date(entry.t + offset * 1000).toISOString().slice(0, 10)));
+                const covered = new Set(store.entries.filter(entry => entry.hist).map(entry => logDayKey(entry, offset)));
                 const today = data.daily.time[data.daily.time.length - 1];
                 const round1 = (value) => Math.round(Number(value) * 10) / 10;
                 let added = 0;
@@ -1540,17 +1593,14 @@
                     });
                     added++;
                 });
-                if (lastPrecipObs && Math.abs(lastPrecipObs.lat - lat) < 0.02 && lastPrecipObs.precip?.daily) {
-                    store.entries.forEach(entry => {
-                        const day = new Date(entry.t + offset * 1000).toISOString().slice(0, 10);
-                        if (!day || day >= today) return;
-                        if (lastPrecipObs.precip.daily[day] == null) return;
-                        const rain = round1(lastPrecipObs.precip.daily[day]);
-                        if (entry.rain !== rain) { entry.rain = rain; added++; }
-                    });
+                patchStoredRain(store, lat, lon, offset, today, round1);
+                let gap = false;
+                for (let day = shiftDayKey(today, -60); day < today; day = shiftDayKey(day, 1)) {
+                    if (!covered.has(day) && !store.entries.some(entry => entry.hist && logDayKey(entry, offset) === day)) { gap = true; break; }
                 }
-                if (!added) return;
+                if (!gap) store.histFrom = shiftDayKey(today, -60);
                 store.name = name;
+                store.entries = compactLogEntries(store.entries, today);
                 store.entries.sort((a, b) => a.t - b.t);
                 if (store.entries.length > 8000) store.entries = store.entries.slice(-8000);
                 localStorage.setItem(key, JSON.stringify(store));
@@ -3441,29 +3491,111 @@
             return `Regen: ${name}${dist}`;
         }
 
+        let weatherGen = 0;
+        let weatherFullGen = 0;
+
+        function clearForecastViews() {
+            ['hourly-items', 'hourly-winds', 'hourly-rains', 'hourly-dots', 'week-container', 'longterm-container', 'three-day-container', 'moon-container'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '';
+            });
+            const box = document.getElementById('forecast-box');
+            if (box) box.style.display = 'none';
+            const lines = document.getElementById('forecast-lines');
+            if (lines) lines.innerHTML = '';
+            const high = document.getElementById('high-temp');
+            const low = document.getElementById('low-temp');
+            if (high) high.innerText = '-';
+            if (low) low.innerText = '-';
+        }
+
+        function paintCurrentPreview(current, name) {
+            if (!current || current.temperature_2m == null) return;
+            if (name) fitCityName(name);
+            const tempEl = document.getElementById('current-temp');
+            const tempText = String(Math.round(current.temperature_2m));
+            tempEl.innerText = tempText;
+            tempEl.classList.toggle('single', tempText.replace('-', '').length === 1);
+            document.getElementById('current-icon').innerHTML = getWeatherIconHtml(current.weather_code, current.is_day);
+            document.getElementById('current-condition').innerText = getWeatherText(current.weather_code, current.owm_id);
+            if (current.apparent_temperature != null) document.getElementById('feels-like').innerText = Math.round(current.apparent_temperature) + '°';
+            if (current.wind_speed_10m != null) document.getElementById('wind-speed').innerText = Math.round(current.wind_speed_10m);
+            if (current.relative_humidity_2m != null) document.getElementById('humidity').textContent = String(Math.round(current.relative_humidity_2m));
+            const pandaIconName = getMeteoconUrl(current.weather_code, current.is_day);
+            const mainPandaImg = document.getElementById('main-panda-img');
+            const pandaSrc = `${pandaIconName}.png`;
+            mainPandaImg.onload = () => { mainPandaImg.style.display = 'block'; };
+            if (mainPandaImg.getAttribute('src') !== pandaSrc) {
+                mainPandaImg.style.display = 'none';
+                mainPandaImg.src = pandaSrc;
+            } else if (mainPandaImg.complete && mainPandaImg.naturalWidth) {
+                mainPandaImg.style.display = 'block';
+            }
+            document.getElementById('orte-current-city').innerText = name || document.getElementById('orte-current-city').innerText;
+            document.getElementById('orte-current-temp').innerHTML = `${Math.round(current.temperature_2m)}° <span>${formatTime(new Date())}</span>`;
+        }
+
+        async function paintCurrentFast(lat, lon, name, gen) {
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,relative_humidity_2m&timezone=auto`);
+                if (!res.ok || gen !== weatherGen || weatherFullGen === gen) return;
+                const data = await res.json();
+                if (gen !== weatherGen || weatherFullGen === gen) return;
+                paintCurrentPreview(data.current, name);
+            } catch (e) {}
+        }
+
+        function publishWeather(data, name, region, timestamp, gen) {
+            if (gen !== weatherGen) return false;
+            weatherFullGen = gen;
+            localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
+            updateUI(data, name, region, timestamp);
+            setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, sourceLabel(data));
+            renderHomeLog();
+            return true;
+        }
+
         async function fetchWeather(lat, lon, name, region) {
+            const gen = ++weatherGen;
             setStatus(t('loading'), true);
+            paintCurrentFast(lat, lon, name, gen);
             const stationPromise = fetchStationObservation(lat, lon);
             
             try {
                 const data = await loadForecast(lat, lon);
+                if (gen !== weatherGen) return;
                 applyStationObservation(data, await stationPromise);
+                if (gen !== weatherGen) return;
                 data.src = data.src || {};
-				const inGermany = lat >= 47 && lat <= 55.2 && lon >= 5.5 && lon <= 15.5;
-				data.src.rainObs = inGermany ? 'none' : 'outside';
-				if (inGermany) {
-					try {
-						const obs = await loadPrecipObs(lat, lon);
-						if (obs) {
-							applyStationPrecipitation(data, obs.precip);
-							data.precipStations = obs.stations;
-							data.src.rainObs = 'ok';
-						}
-					} catch (e) {
-						console.error('Niederschlagsstationen nicht geladen', e);
-						data.src.rainObs = 'error';
-					}
-				}
+                const inGermany = lat >= 47 && lat <= 55.2 && lon >= 5.5 && lon <= 15.5;
+                data.src.rainObs = inGermany ? 'none' : 'outside';
+                const timestamp = Date.now();
+                publishWeather(data, name, region, timestamp, gen);
+                if (!isCompositeModel()) {
+                    identifyTempModel(lat, lon, data.current?.temperature_2m).then(model => {
+                        if (gen !== weatherGen || isCompositeModel()) return;
+                        data.tempSource = model;
+                        if (model !== 'Open-Meteo') data.src.cur = { temp: { k: 'guess', name: model }, wind: { k: 'model', id: 'best_match' } };
+                        renderSources(data);
+                        setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, sourceLabel(data));
+                    }).catch(() => {});
+                }
+                if (inGermany) {
+                    try {
+                        const obs = await loadPrecipObs(lat, lon);
+                        if (gen !== weatherGen) return;
+                        if (obs) {
+                            applyStationPrecipitation(data, obs.precip);
+                            data.precipStations = obs.stations;
+                            data.src.rainObs = 'ok';
+                            publishWeather(data, name, region, timestamp, gen);
+                        }
+                    } catch (e) {
+                        console.error('Niederschlagsstationen nicht geladen', e);
+                        data.src.rainObs = 'error';
+                    }
+                }
+                if (gen !== weatherGen) return;
                 if (weatherModel() === 'owm') {
                     try { await applyOpenWeatherModel(data, lat, lon); }
                     catch (e) { console.error('OpenWeather nicht geladen', e); }
@@ -3474,30 +3606,13 @@
                     try { await applyLegacyModel(data, lat, lon); }
                     catch (e) { console.error('Modell 2 nicht geladen', e); }
                 }
-                renderSources(data);
-                
-                const timestamp = new Date().getTime();
-                localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
-                
-                updateUI(data, name, region, timestamp);
+                if (gen !== weatherGen) return;
+                if (weatherModel() !== 'best') publishWeather(data, name, region, timestamp, gen);
                 appendWeatherLog(lat, lon, name, data, timestamp);
-                setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, sourceLabel(data));
-                if (!isCompositeModel()) {
-                    identifyTempModel(lat, lon, data.current?.temperature_2m).then(model => {
-                        if (currentLat !== lat || currentLon !== lon || isCompositeModel()) return;
-                        data.tempSource = model;
-                        if (model !== 'Open-Meteo') data.src.cur = { temp: { k: 'guess', name: model }, wind: { k: 'model', id: 'best_match' } };
-                        renderSources(data);
-                        localStorage.setItem('panda_last_weather', JSON.stringify({data, city: name, region: region, timestamp}));
-                        setStatus(`${t('stand')} ${formatTime(new Date(timestamp))}`, false, sourceLabel(data));
-                    }).catch(() => {});
-                }
-                // Verlauf (60 Tage) erst im Hintergrund nachladen, nachdem die Hauptansicht steht
-                setTimeout(() => backfillWeatherLog(lat, lon, name), 1500);
-                renderHomeLog();
+                backfillWeatherLog(lat, lon, name);
             } catch (error) {
                 console.error("Fehler beim Laden:", error);
-                if (!restoreCachedForecast()) {
+                if (gen === weatherGen && !restoreCachedForecast()) {
                     setStatus(t('offline'), false);
                     alert("Live data could not be loaded.");
                 }
